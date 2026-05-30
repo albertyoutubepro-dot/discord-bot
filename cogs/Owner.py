@@ -123,5 +123,45 @@ class Owner(commands.Cog):
         await ctx.reply(embed=embed)
 
 
+    # ─── !lookup ──────────────────────────────────────────────────────────────
+    @commands.command(name="lookup", usage="<user_id>")
+    @is_owner()
+    async def lookup(self, ctx, user_id: int):
+        """Get info on any Discord user by ID."""
+        try:
+            user = await self.bot.fetch_user(user_id)
+            embed = discord.Embed(
+                title=f"🔍 User Lookup",
+                color=discord.Color.blurple(),
+                timestamp=discord.utils.utcnow(),
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.add_field(name="Username", value=str(user), inline=True)
+            embed.add_field(name="ID", value=user.id, inline=True)
+            embed.add_field(name="Bot", value="Yes" if user.bot else "No", inline=True)
+            embed.add_field(name="Account Created", value=discord.utils.format_dt(user.created_at, "R"), inline=True)
+            embed.add_field(name="Avatar URL", value=f"[Click here]({user.display_avatar.url})", inline=True)
+            await ctx.reply(embed=embed)
+        except discord.NotFound:
+            await ctx.reply("❌ User not found. Make sure the ID is correct.")
+
+    # ─── !impersonate ─────────────────────────────────────────────────────────
+    @commands.command(name="impersonate", usage="<@user> <message>")
+    @is_owner()
+    async def impersonate(self, ctx, member: discord.Member, *, message: str):
+        """Send a message as a webhook that looks like another user."""
+        await ctx.message.delete()
+        try:
+            webhook = await ctx.channel.create_webhook(name=member.display_name)
+            await webhook.send(
+                content=message,
+                username=member.display_name,
+                avatar_url=member.display_avatar.url,
+            )
+            await webhook.delete()
+        except discord.Forbidden:
+            await ctx.reply("❌ I need **Manage Webhooks** permission to do that.")
+
+
 async def setup(bot):
     await bot.add_cog(Owner(bot))
