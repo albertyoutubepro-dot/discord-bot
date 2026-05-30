@@ -163,6 +163,8 @@ async def on_command_error(ctx: commands.Context, error):
         await ctx.reply(f"❌ Invalid argument. Use `!help {ctx.command}` for usage.")
     elif isinstance(error, commands.CommandNotFound):
         pass  # Silently ignore unknown commands
+    elif isinstance(error, commands.CheckFailure):
+        pass  # Silently ignore unauthorized command attempts
     else:
         await ctx.reply(f"❌ An unexpected error occurred: `{error}`")
         raise error
