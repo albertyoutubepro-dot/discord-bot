@@ -13,6 +13,14 @@ def is_owner():
         return True
     return commands.check(predicate)
 
+def is_autoreact_user():
+    async def predicate(ctx):
+        if ctx.author.id not in AUTOREACT_USERS:
+            await ctx.reply("❌ You don't have permission to use this command.")
+            return False
+        return True
+    return commands.check(predicate)
+
 def uwuify(text: str) -> str:
     text = text.replace('r', 'w').replace('R', 'W').replace('l', 'w').replace('L', 'W')
     text = text.replace('no', 'nyo').replace('No', 'Nyo').replace('NO', 'NYO')
@@ -138,7 +146,7 @@ class Owner(commands.Cog):
 
     # ─── !autoreact ───────────────────────────────────────────────────────────
     @commands.command(name="autoreact")
-    @is_owner()
+    @is_autoreact_user()
     async def autoreact(self, ctx):
         """Toggle 🐰 auto-react on your messages and one other user's messages in this channel."""
         if ctx.channel.id in self.bot.autoreact_channels:
