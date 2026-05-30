@@ -290,5 +290,27 @@ class Fun(commands.Cog):
         await ctx.reply(embed=embed)
 
 
+    # ─── !slap ─────────────────────────────────────────────────────────────────
+    @commands.command(name="slap", usage="[@user]")
+    async def slap(self, ctx, member: discord.Member = None):
+        """Slap someone with a gif."""
+        import random
+        gifs = [
+            "https://media1.giphy.com/media/Zau0yrl17uzdK/giphy.gif",
+            "https://media0.giphy.com/media/jLeyZWgtwgr2U/giphy.gif",
+            "https://media2.giphy.com/media/xUO4t2gkziBtks3q80/giphy.gif",
+            "https://media3.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",
+            "https://media1.giphy.com/media/uqSU9IEYEKAbS/giphy.gif",
+        ]
+        target = member.mention if member else "the air 💨"
+        embed = discord.Embed(
+            title=f"👋 {ctx.author.display_name} slaps {target}",
+            color=discord.Color.orange(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_image(url=random.choice(gifs))
+        await ctx.reply(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(Fun(bot))
