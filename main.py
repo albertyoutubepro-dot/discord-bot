@@ -23,6 +23,7 @@ bot.warn_data       = defaultdict(list)   # "user_id:guild_id" -> [{ reason, tim
 bot.log_channels    = {}                   # guild_id -> channel_id
 bot.welcome_config  = {}                   # guild_id -> { channel_id, message }
 bot.autorole        = {}                   # guild_id -> role_id
+bot.bot_banned      = set()               # user_ids banned from using the bot
 bot.uwu_channels    = set()               # channel_ids with uwu mode on
 
 # ─── UwU Mode Hook ────────────────────────────────────────────────────────────
@@ -148,6 +149,12 @@ async def on_ready():
         type=discord.ActivityType.watching,
         name="the server | !help"
     ))
+
+@bot.check
+async def bot_ban_check(ctx: commands.Context):
+    if ctx.author.id in bot.bot_banned:
+        return False
+    return True
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
