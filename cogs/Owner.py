@@ -99,5 +99,29 @@ class Owner(commands.Cog):
         await ctx.reply(embed=embed)
 
 
+    # ─── !crypto ──────────────────────────────────────────────────────────────
+    @commands.command(name="crypto")
+    async def crypto(self, ctx):
+        """Sends a random crypto meme gif."""
+        import random
+        gifs = [
+            "https://media.tenor.com/NsRB2-bYqYAAAAAC/bitcoin-crypto.gif",
+            "https://media.tenor.com/IB2TqFpzZT8AAAAC/crypto-bitcoin.gif",
+            "https://media.tenor.com/x2NbAbq6LWYAAAAC/crypto-cryptocurrency.gif",
+            "https://media.tenor.com/q4tFTMGENpAAAAAC/stonks-stonks-meme.gif",
+            "https://media.tenor.com/gPMA6m4pj6MAAAAC/money-cash.gif",
+            "https://media.tenor.com/0HLGK5tQPj0AAAAC/crypto-bitcoin.gif",
+            "https://media.tenor.com/FxNCPlzMWcEAAAAC/bitcoin-btc.gif",
+        ]
+        embed = discord.Embed(
+            title="📈 CRYPTO GO BRRR",
+            color=discord.Color.gold(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_image(url=random.choice(gifs))
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        await ctx.reply(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(Owner(bot))
