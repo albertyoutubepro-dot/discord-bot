@@ -114,6 +114,11 @@ class Info(commands.Cog):
             "`!poll <question>`  — Create a poll",
             "`!joke`             — Random joke",
             "`!choose a | b | c` — Pick an option",
+            "`!crypto`           — Random crypto gif",
+            "`!kiss [@user]`     — Send a kiss gif",
+            "`!hug [@user]`      — Send a hug gif",
+            "`!slap [@user]`     — Slap someone",
+            "`!cuddle [@user]`   — Send a cuddle gif",
         ]))
         embed.add_field(name="👋 Welcome & Autorole", inline=False, value="\n".join([
             "`!setwelcome set <#channel> <message>` — Set welcome message",
@@ -127,6 +132,9 @@ class Info(commands.Cog):
         embed.add_field(name="🔍 Snipe", inline=False, value="\n".join([
             "`!snipe`     — Last deleted message",
             "`!editsnipe` — Last edited message",
+        ]))
+        embed.add_field(name="💤 AFK", inline=False, value="\n".join([
+            "`!afk [reason]` — Set your AFK status",
         ]))
         embed.add_field(name="ℹ️ Info", inline=False, value="\n".join([
             "`!userinfo [@user]` — User info",
