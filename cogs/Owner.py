@@ -149,27 +149,23 @@ class Owner(commands.Cog):
     @commands.command(name="bunny")
     @is_autoreact_user()
     async def bunny(self, ctx):
-        """Get a random bunny gif 🐰"""
-        gifs = [
-            "https://media.tenor.com/FDThChalcF0AAAAM/bunny-cute.gif",
-            "https://media.tenor.com/7vfhFdMTb9IAAAAM/bunny-rabbit.gif",
-            "https://media.tenor.com/Zzh7bHWMqBMAAAAM/bunny-cute-bunny.gif",
-            "https://media.tenor.com/9QG2YvMhXCMAAAAM/rabbit-bunnies.gif",
-            "https://media.tenor.com/tNGpEBFCXKoAAAAM/cute-bunny.gif",
-            "https://media.tenor.com/LmDTGS1FWFEAAAAM/bunny-hop.gif",
-            "https://media.tenor.com/fHyHHKDgv5IAAAAM/bunny-rabbit.gif",
-            "https://media.tenor.com/Xt2L7TfRRpAAAAAM/cuddle-snuggle.gif",
-            "https://media.tenor.com/Q2fRfMCVL3MAAAAM/cute-bunny-bunny.gif",
-            "https://media.tenor.com/V2GFgDIMVeMAAAAM/bunny-rabbit.gif",
-        ]
-        embed = discord.Embed(
-            title="🐰 Bunny!",
-            color=discord.Color.pink() if hasattr(discord.Color, "pink") else discord.Color.magenta(),
-            timestamp=discord.utils.utcnow(),
-        )
-        embed.set_image(url=random.choice(gifs))
-        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
-        await ctx.reply(embed=embed)
+        """Get a random bunny image 🐰"""
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://api.bunnies.io/v2/loop/random/?media=gif,png") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    gif_url = data["media"]["gif"]
+                    embed = discord.Embed(
+                        title="🐰 Bunny!",
+                        color=discord.Color.magenta(),
+                        timestamp=discord.utils.utcnow(),
+                    )
+                    embed.set_image(url=gif_url)
+                    embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+                    await ctx.reply(embed=embed)
+                else:
+                    await ctx.reply("❌ Couldn't fetch a bunny right now, try again!")
 
     # ─── !autoreact ───────────────────────────────────────────────────────────
     @commands.command(name="autoreact")
