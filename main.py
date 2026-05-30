@@ -23,6 +23,24 @@ bot.warn_data       = defaultdict(list)   # "user_id:guild_id" -> [{ reason, tim
 bot.log_channels    = {}                   # guild_id -> channel_id
 bot.welcome_config  = {}                   # guild_id -> { channel_id, message }
 bot.autorole        = {}                   # guild_id -> role_id
+bot.uwu_channels    = set()               # channel_ids with uwu mode on
+
+# ─── UwU Mode Hook ────────────────────────────────────────────────────────────
+original_send = discord.TextChannel.send
+
+async def uwu_send(self, content=None, **kwargs):
+    if content and self.id in bot.uwu_channels:
+        import random
+        text = str(content)
+        text = text.replace('r','w').replace('R','W').replace('l','w').replace('L','W')
+        text = text.replace('you','chu').replace('You','Chu').replace('the','da').replace('The','Da')
+        endings = [' uwu', ' owo', ' >w<', ' :3', ' ~', ' nya~', '']
+        if text and text[-1] in '.!?':
+            text = text[:-1] + random.choice(endings)
+        content = text
+    return await original_send(self, content, **kwargs)
+
+discord.TextChannel.send = uwu_send
 
 # ─── Load Cogs ────────────────────────────────────────────────────────────────
 async def load_cogs():
