@@ -209,6 +209,36 @@ class AntiNuke(commands.Cog):
             timestamp=discord.utils.utcnow(),
         ))
 
+    @antinuke.command(name="test")
+    @commands.has_permissions(administrator=True)
+    async def antinuke_test(self, ctx):
+        """Simulate a nuke trigger — sends a fake alert to your log channel without doing anything real."""
+        if ctx.guild.id not in self.bot.antinuke_enabled:
+            return await ctx.reply("❌ Anti-nuke is not enabled. Run `!antinuke enable` first.")
+
+        log_channel_id = self.bot.log_channels.get(ctx.guild.id)
+        if not log_channel_id:
+            return await ctx.reply("❌ No log channel set. Run `!setlog #channel` first.")
+
+        channel = ctx.guild.get_channel(log_channel_id)
+        if not channel:
+            return await ctx.reply("❌ Log channel not found.")
+
+        embed = discord.Embed(
+            title="🚨 Anti-Nuke Triggered",
+            description="⚠️ **This is a TEST** — no real action was taken.",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.add_field(name="User",       value=f"{ctx.author} ({ctx.author.id})", inline=True)
+        embed.add_field(name="Action",     value="Mass Channel Delete (simulated)",  inline=True)
+        embed.add_field(name="Punishment", value="All roles stripped (simulated)",   inline=True)
+        embed.add_field(name="Details",    value="This was triggered by `!antinuke test`", inline=False)
+        embed.set_footer(text="Anti-Nuke System — TEST MODE")
+
+        await channel.send(embed=embed)
+        await ctx.reply(f"✅ Test alert sent to {channel.mention}! Check if the embed showed up correctly.")
+
     # ─── Listeners ────────────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User):
