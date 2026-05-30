@@ -105,13 +105,13 @@ class Owner(commands.Cog):
         """Sends a random crypto meme gif."""
         import random
         gifs = [
-            "https://media.tenor.com/NsRB2-bYqYAAAAAC/bitcoin-crypto.gif",
-            "https://media.tenor.com/IB2TqFpzZT8AAAAC/crypto-bitcoin.gif",
-            "https://media.tenor.com/x2NbAbq6LWYAAAAC/crypto-cryptocurrency.gif",
-            "https://media.tenor.com/q4tFTMGENpAAAAAC/stonks-stonks-meme.gif",
-            "https://media.tenor.com/gPMA6m4pj6MAAAAC/money-cash.gif",
-            "https://media.tenor.com/0HLGK5tQPj0AAAAC/crypto-bitcoin.gif",
-            "https://media.tenor.com/FxNCPlzMWcEAAAAC/bitcoin-btc.gif",
+            "https://media0.giphy.com/media/JtcYnMRbgCdbNjbJMT/giphy.gif",
+            "https://media2.giphy.com/media/26n6WywJyh39n1pBu/giphy.gif",
+            "https://media1.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif",
+            "https://media3.giphy.com/media/3o7TKSha51ATTx9KzC/giphy.gif",
+            "https://media0.giphy.com/media/Qss6PkjFMLd3n89kk7/giphy.gif",
+            "https://media2.giphy.com/media/xT9IgG50Lg7rusRgqU/giphy.gif",
+            "https://media1.giphy.com/media/l3V0sNZ0NGomeurSM/giphy.gif",
         ]
         embed = discord.Embed(
             title="📈 CRYPTO GO BRRR",
