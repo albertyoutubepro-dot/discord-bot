@@ -115,6 +115,15 @@ class Info(commands.Cog):
             "`!joke`             — Random joke",
             "`!choose a | b | c` — Pick an option",
         ]))
+        embed.add_field(name="👋 Welcome & Autorole", inline=False, value="\n".join([
+            "`!setwelcome set <#channel> <message>` — Set welcome message",
+            "`!setwelcome disable`  — Disable welcome messages",
+            "`!setwelcome test`     — Send a test welcome",
+            "`!setwelcome status`   — View welcome config",
+            "`!autorole set <@role>` — Set auto-role for new members",
+            "`!autorole disable`    — Disable autorole",
+            "`!autorole status`     — View autorole config",
+        ]))
         embed.add_field(name="🔍 Snipe", inline=False, value="\n".join([
             "`!snipe`     — Last deleted message",
             "`!editsnipe` — Last edited message",
