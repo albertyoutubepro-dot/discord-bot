@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+import random
 
 OWNER_ID = 1446215395358015559
 
@@ -15,6 +16,8 @@ def is_owner():
 class Owner(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        if not hasattr(bot, 'autoreact_channels'):
+            bot.autoreact_channels = set()
 
     # ─── !say ─────────────────────────────────────────────────────────────────
     @commands.command(name="say", usage="[#channel] <message>")
@@ -54,7 +57,6 @@ class Owner(commands.Cog):
             activity = discord.Activity(type=discord.ActivityType.listening, name=text)
         else:
             return await ctx.reply("❌ Type must be `playing`, `watching`, or `listening`.")
-
         await self.bot.change_presence(activity=activity)
         await ctx.reply(embed=discord.Embed(
             title="✅ Status Updated",
@@ -92,26 +94,22 @@ class Owner(commands.Cog):
             color=discord.Color.red(),
             timestamp=discord.utils.utcnow(),
         )
-        embed.add_field(name="🌐 Website",       value="[deathhh.netlify.app](https://deathhh.netlify.app/)",  inline=True)
-        embed.add_field(name="💬 Discord Server", value="[Join here](https://discord.gg/kmGn5bh8Kf)",           inline=True)
-        embed.add_field(name="➕ Add Bot",        value="[Invite Death](https://discord.com/oauth2/authorize?client_id=1510024097269153843&permissions=8&integration_type=0&scope=bot)", inline=True)
+        embed.add_field(name="🌐 Website",        value="[deathhh.netlify.app](https://deathhh.netlify.app/)", inline=True)
+        embed.add_field(name="💬 Discord Server", value="[Join here](https://discord.gg/kmGn5bh8Kf)",          inline=True)
+        embed.add_field(name="➕ Add Bot",         value="[Invite Death](https://discord.com/oauth2/authorize?client_id=1510024097269153843&permissions=8&integration_type=0&scope=bot)", inline=True)
         embed.set_footer(text="Death Bot — Est. 2026")
         await ctx.reply(embed=embed)
-
 
     # ─── !crypto ──────────────────────────────────────────────────────────────
     @commands.command(name="crypto")
     async def crypto(self, ctx):
         """Sends a random crypto meme gif."""
-        import random
         gifs = [
             "https://media0.giphy.com/media/JtcYnMRbgCdbNjbJMT/giphy.gif",
             "https://media2.giphy.com/media/26n6WywJyh39n1pBu/giphy.gif",
             "https://media1.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif",
             "https://media3.giphy.com/media/3o7TKSha51ATTx9KzC/giphy.gif",
             "https://media0.giphy.com/media/Qss6PkjFMLd3n89kk7/giphy.gif",
-            "https://media2.giphy.com/media/xT9IgG50Lg7rusRgqU/giphy.gif",
-            "https://media1.giphy.com/media/l3V0sNZ0NGomeurSM/giphy.gif",
         ]
         embed = discord.Embed(
             title="📈 CRYPTO GO BRRR",
@@ -122,7 +120,6 @@ class Owner(commands.Cog):
         embed.set_footer(text=f"Requested by {ctx.author.display_name}")
         await ctx.reply(embed=embed)
 
-
     # ─── !lookup ──────────────────────────────────────────────────────────────
     @commands.command(name="lookup", usage="<user_id>")
     @is_owner()
@@ -131,16 +128,16 @@ class Owner(commands.Cog):
         try:
             user = await self.bot.fetch_user(user_id)
             embed = discord.Embed(
-                title=f"🔍 User Lookup",
+                title="🔍 User Lookup",
                 color=discord.Color.blurple(),
                 timestamp=discord.utils.utcnow(),
             )
             embed.set_thumbnail(url=user.display_avatar.url)
-            embed.add_field(name="Username", value=str(user), inline=True)
-            embed.add_field(name="ID", value=user.id, inline=True)
-            embed.add_field(name="Bot", value="Yes" if user.bot else "No", inline=True)
+            embed.add_field(name="Username",       value=str(user),  inline=True)
+            embed.add_field(name="ID",             value=user.id,    inline=True)
+            embed.add_field(name="Bot",            value="Yes" if user.bot else "No", inline=True)
             embed.add_field(name="Account Created", value=discord.utils.format_dt(user.created_at, "R"), inline=True)
-            embed.add_field(name="Avatar URL", value=f"[Click here]({user.display_avatar.url})", inline=True)
+            embed.add_field(name="Avatar URL",     value=f"[Click here]({user.display_avatar.url})", inline=True)
             await ctx.reply(embed=embed)
         except discord.NotFound:
             await ctx.reply("❌ User not found. Make sure the ID is correct.")
@@ -161,6 +158,41 @@ class Owner(commands.Cog):
             await webhook.delete()
         except discord.Forbidden:
             await ctx.reply("❌ I need **Manage Webhooks** permission to do that.")
+
+    # ─── !autoreact ───────────────────────────────────────────────────────────
+    @commands.command(name="autoreact")
+    @is_owner()
+    async def autoreact(self, ctx):
+        """Toggle 🎃 auto-react to your messages in this channel."""
+        if ctx.channel.id in self.bot.autoreact_channels:
+            self.bot.autoreact_channels.discard(ctx.channel.id)
+            await ctx.reply(embed=discord.Embed(
+                title="🎃 Auto-React Disabled",
+                description=f"No longer reacting to your messages in {ctx.channel.mention}.",
+                color=discord.Color.orange(),
+                timestamp=discord.utils.utcnow(),
+            ))
+        else:
+            self.bot.autoreact_channels.add(ctx.channel.id)
+            await ctx.reply(embed=discord.Embed(
+                title="🎃 Auto-React Enabled",
+                description=f"Now reacting 🎃 to your messages in {ctx.channel.mention}.",
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow(),
+            ))
+
+    # ─── Auto-react listener ──────────────────────────────────────────────────
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+        if message.author.id != OWNER_ID:
+            return
+        if message.channel.id in self.bot.autoreact_channels:
+            try:
+                await message.add_reaction("🎃")
+            except discord.Forbidden:
+                pass
 
 
 async def setup(bot):
