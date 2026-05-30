@@ -296,11 +296,8 @@ class Fun(commands.Cog):
         """Slap someone with a gif."""
         import random
         gifs = [
-            "https://media1.giphy.com/media/Zau0yrl17uzdK/giphy.gif",
-            "https://media0.giphy.com/media/jLeyZWgtwgr2U/giphy.gif",
-            "https://media2.giphy.com/media/xUO4t2gkziBtks3q80/giphy.gif",
-            "https://media3.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",
-            "https://media1.giphy.com/media/uqSU9IEYEKAbS/giphy.gif",
+            "https://media.tenor.com/E3OW-MYYum0AAAAM/no-angry.gif",
+            "https://media.tenor.com/E3OW-MYYum0AAAAM/no-angry.gif",
         ]
         target = member.mention if member else "the air 💨"
         embed = discord.Embed(
