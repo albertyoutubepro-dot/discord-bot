@@ -331,5 +331,33 @@ class Fun(commands.Cog):
         await ctx.reply(embed=embed)
 
 
+    # ─── !kill ────────────────────────────────────────────────────────────────
+    @commands.command(name="kill", usage="[@user]")
+    async def kill(self, ctx, member: discord.Member = None):
+        """Kill someone with a gif."""
+        import random
+        gifs = [
+            "https://media.tenor.com/ZNca7ZNfcz0AAAAM/anime-kill.gif",
+            "https://media.tenor.com/GN3bTvLOFVcAAAAM/anime-sword.gif",
+            "https://media.tenor.com/sBtqGCdTBcIAAAAM/anime-fight.gif",
+            "https://media.tenor.com/tMPFXQLPayYAAAAM/anime-kill.gif",
+            "https://media.tenor.com/2hUMxwYSvtIAAAAM/kill-anime.gif",
+        ]
+        target = member.mention if member else "themselves 💀"
+        messages = [
+            f"⚔️ {ctx.author.display_name} has slain {target}!",
+            f"💀 {target} has been eliminated by {ctx.author.display_name}!",
+            f"🩸 {ctx.author.display_name} showed no mercy to {target}!",
+            f"☠️ {target} didn't stand a chance against {ctx.author.display_name}!",
+        ]
+        embed = discord.Embed(
+            title=random.choice(messages),
+            color=discord.Color.dark_red(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_image(url=random.choice(gifs))
+        await ctx.reply(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(Fun(bot))
