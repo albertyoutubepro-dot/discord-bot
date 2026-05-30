@@ -21,6 +21,8 @@ bot.editsnipe_cache = {}   # channel_id -> { before, after, author, timestamp }
 bot.raid_data       = defaultdict(lambda: {"join_timestamps": [], "lockdown": False})
 bot.warn_data       = defaultdict(list)   # "user_id:guild_id" -> [{ reason, timestamp, moderator }]
 bot.log_channels    = {}                   # guild_id -> channel_id
+bot.welcome_config  = {}                   # guild_id -> { channel_id, message }
+bot.autorole        = {}                   # guild_id -> role_id
 
 # ─── Load Cogs ────────────────────────────────────────────────────────────────
 async def load_cogs():
