@@ -247,5 +247,48 @@ class Fun(commands.Cog):
         ).set_footer(text=f"From {len(choices)} options"))
 
 
+    # ─── !kiss ────────────────────────────────────────────────────────────────
+    @commands.command(name="kiss", usage="[@user]")
+    async def kiss(self, ctx, member: discord.Member = None):
+        """Send a kiss gif to someone."""
+        import random
+        gifs = [
+            "https://media1.giphy.com/media/G3va31oEEnIkM/giphy.gif",
+            "https://media0.giphy.com/media/bGm9FuBCGg4SY/giphy.gif",
+            "https://media2.giphy.com/media/zkppEMFvRX5FC/giphy.gif",
+            "https://media3.giphy.com/media/11WPtGPPBEfTxC/giphy.gif",
+            "https://media1.giphy.com/media/raiDtE5sMuDMI/giphy.gif",
+        ]
+        target = member.mention if member else "the air 💨"
+        embed = discord.Embed(
+            title=f"💋 {ctx.author.display_name} kisses {target}",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_image(url=random.choice(gifs))
+        await ctx.reply(embed=embed)
+
+    # ─── !hug ─────────────────────────────────────────────────────────────────
+    @commands.command(name="hug", usage="[@user]")
+    async def hug(self, ctx, member: discord.Member = None):
+        """Send a hug gif to someone."""
+        import random
+        gifs = [
+            "https://media2.giphy.com/media/l2QDM9Jnim1YVILXa/giphy.gif",
+            "https://media0.giphy.com/media/3M4NpbLCTxBqU/giphy.gif",
+            "https://media1.giphy.com/media/od5H3PmEG5EVq/giphy.gif",
+            "https://media3.giphy.com/media/ZQN9jsRWp1M76/giphy.gif",
+            "https://media2.giphy.com/media/143v0Z4767T15K/giphy.gif",
+        ]
+        target = member.mention if member else "everyone 🤗"
+        embed = discord.Embed(
+            title=f"🤗 {ctx.author.display_name} hugs {target}",
+            color=discord.Color.pink() if hasattr(discord.Color, 'pink') else discord.Color.magenta(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_image(url=random.choice(gifs))
+        await ctx.reply(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(Fun(bot))
