@@ -309,5 +309,27 @@ class Fun(commands.Cog):
         await ctx.reply(embed=embed)
 
 
+    # ─── !cuddle ──────────────────────────────────────────────────────────────
+    @commands.command(name="cuddle", usage="[@user]")
+    async def cuddle(self, ctx, member: discord.Member = None):
+        """Send a cuddle gif to someone."""
+        import random
+        gifs = [
+            "https://media.tenor.com/aBqJGPNNMxAAAAAM/cuddle-hug.gif",
+            "https://media.tenor.com/c9KRFcCCNq8AAAAM/anime-cuddle.gif",
+            "https://media.tenor.com/5WsKFBiHOeAAAAAM/cuddle-anime.gif",
+            "https://media.tenor.com/Xt2L7TfRRpAAAAAM/cuddle-snuggle.gif",
+            "https://media.tenor.com/I0Q-A0EnXTIAAAAM/anime-cuddle.gif",
+        ]
+        target = member.mention if member else "someone special 🥰"
+        embed = discord.Embed(
+            title=f"🥰 {ctx.author.display_name} cuddles {target}",
+            color=discord.Color.magenta(),
+            timestamp=discord.utils.utcnow(),
+        )
+        embed.set_image(url=random.choice(gifs))
+        await ctx.reply(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(Fun(bot))
