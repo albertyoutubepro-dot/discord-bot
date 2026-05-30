@@ -53,7 +53,7 @@ class Moderation(commands.Cog):
     async def ban(self, ctx, member: discord.Member, delete_days: int = 0, *, reason: str = "No reason provided"):
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             return await ctx.reply("❌ You can't ban someone with an equal or higher role than you.")
-        if not member.is_bannable():
+        if not member.guild_permissions.administrator and not ctx.guild.me.guild_permissions.ban_members:
             return await ctx.reply("❌ I cannot ban this user (their role may be higher than mine).")
         try:
             await member.send(embed=discord.Embed(
@@ -90,7 +90,7 @@ class Moderation(commands.Cog):
     async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             return await ctx.reply("❌ You can't kick someone with an equal or higher role.")
-        if not member.is_bannable():
+        if not member.guild_permissions.administrator and not ctx.guild.me.guild_permissions.ban_members:
             return await ctx.reply("❌ I cannot kick this user.")
         try:
             await member.send(embed=discord.Embed(
@@ -112,7 +112,7 @@ class Moderation(commands.Cog):
     async def mute(self, ctx, member: discord.Member, minutes: int, *, reason: str = "No reason provided"):
         if minutes < 1 or minutes > 40320:
             return await ctx.reply("❌ Duration must be between 1 and 40320 minutes (28 days).")
-        if not member.is_bannable():
+        if not member.guild_permissions.administrator and not ctx.guild.me.guild_permissions.ban_members:
             return await ctx.reply("❌ I cannot timeout this user.")
         import datetime
         until = discord.utils.utcnow() + datetime.timedelta(minutes=minutes)
