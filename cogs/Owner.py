@@ -3,6 +3,7 @@ from discord.ext import commands
 import random
 
 OWNER_ID = 1446215395358015559
+AUTOREACT_USERS = {1446215395358015559, 1430807402688548876}  # owner + extra user
 
 def is_owner():
     async def predicate(ctx):
@@ -139,16 +140,16 @@ class Owner(commands.Cog):
     @commands.command(name="autoreact")
     @is_owner()
     async def autoreact(self, ctx):
-        """Toggle 🎃 auto-react on your messages in this channel."""
+        """Toggle 🐰 auto-react on your messages and one other user's messages in this channel."""
         if ctx.channel.id in self.bot.autoreact_channels:
             self.bot.autoreact_channels.discard(ctx.channel.id)
-            await ctx.reply(embed=discord.Embed(title="🎃 Auto-React Disabled",
+            await ctx.reply(embed=discord.Embed(title="🐰 Auto-React Disabled",
                 description=f"Disabled in {ctx.channel.mention}.", color=discord.Color.orange(),
                 timestamp=discord.utils.utcnow()))
         else:
             self.bot.autoreact_channels.add(ctx.channel.id)
-            await ctx.reply(embed=discord.Embed(title="🎃 Auto-React Enabled",
-                description=f"Reacting 🎃 to your messages in {ctx.channel.mention}.",
+            await ctx.reply(embed=discord.Embed(title="🐰 Auto-React Enabled",
+                description=f"Reacting 🐰 to messages in {ctx.channel.mention}.",
                 color=discord.Color.green(), timestamp=discord.utils.utcnow()))
 
     # ─── !echo ────────────────────────────────────────────────────────────────
@@ -219,29 +220,20 @@ class Owner(commands.Cog):
         if message.author.bot:
             return
 
-        # Auto-react
-        if message.author.id == OWNER_ID and message.channel.id in self.bot.autoreact_channels:
+        # Auto-react — both owner and extra user get 🐰
+        if message.author.id in AUTOREACT_USERS and message.channel.id in self.bot.autoreact_channels:
             try:
-                await message.add_reaction("🎃")
+                await message.add_reaction("🐰")
             except discord.Forbidden:
                 pass
 
-        # Echo
+        # Echo — owner only
         if message.author.id == OWNER_ID and message.channel.id in self.bot.echo_channels:
             if not message.content.startswith('!'):
                 try:
                     await message.channel.send(f"> {message.content}")
                 except discord.Forbidden:
                     pass
-
-    @commands.Cog.listener()
-    async def on_message_uwu(self, message: discord.Message):
-        """UwU-ify messages in uwu channels."""
-        if not message.author.bot:
-            return
-        if message.author.id != self.bot.user.id:
-            return
-        # UwU mode is handled via send_uwu helper — see below
 
 
 async def setup(bot):
