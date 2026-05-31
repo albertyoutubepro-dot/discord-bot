@@ -99,6 +99,27 @@ CATEGORIES = {
             ("!help",               "This menu"),
         ]
     },
+    "levels": {
+        "label": "⭐ Levels & Stats",
+        "color": discord.Color.gold(),
+        "commands": [
+            ("!rank [@user]",               "Your level, XP, stats"),
+            ("!stats [@user]",              "Detailed activity stats"),
+            ("!leaderboard",               "Top 10 most active members"),
+            ("!setlevelchannel #channel",   "Set level up notification channel"),
+            ("!setlevelrole <level> @role", "Give role at a certain level"),
+            ("!resetxp @user",             "Reset a member's XP (Admin)"),
+        ]
+    },
+    "social": {
+        "label": "💘 Social",
+        "color": discord.Color.magenta(),
+        "commands": [
+            ("!marry @user",    "Propose to someone"),
+            ("!divorce @user",  "Divorce your partner"),
+            ("!afk [reason]",   "Set your AFK status"),
+        ]
+    },
 }
 
 
@@ -154,6 +175,8 @@ def build_view(current: str = "home") -> discord.ui.View:
         "snipe":      (discord.ButtonStyle.primary,   "🔍", 1),
         "fun":        (discord.ButtonStyle.primary,   "🎉", 2),
         "info":       (discord.ButtonStyle.secondary, "ℹ️", 2),
+        "levels":     (discord.ButtonStyle.success,   "⭐", 3),
+        "social":     (discord.ButtonStyle.primary,   "💘", 3),
     }
 
     for key, (style, emoji, row) in styles.items():
