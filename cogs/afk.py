@@ -6,7 +6,6 @@ import time
 class AFK(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # afk_users: { user_id: { "reason": str, "timestamp": float, "guild_id": int } }
         if not hasattr(bot, 'afk_users'):
             bot.afk_users = {}
 
@@ -20,7 +19,6 @@ class AFK(commands.Cog):
             "guild_id": ctx.guild.id,
         }
 
-        # Try to add [AFK] to nickname
         try:
             if not ctx.author.display_name.startswith("[AFK]"):
                 await ctx.author.edit(nick=f"[AFK] {ctx.author.display_name}"[:32])
@@ -32,20 +30,24 @@ class AFK(commands.Cog):
             description=f"You are now AFK: **{reason}**\nI'll notify anyone who pings you.",
             color=discord.Color.light_gray(),
             timestamp=discord.utils.utcnow(),
-        ).set_footer(text="You will be removed from AFK when you send a message"))
+        ).set_footer(text="Send any message to remove AFK"))
 
-    # ─── Listener: notify on ping, remove AFK on message ─────────────────────
+    # ─── Listener ─────────────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or not message.guild:
             return
 
-        # Remove AFK if the user sends a message
+        # ── Remove AFK if the user sends any message ──
         if message.author.id in self.bot.afk_users:
+            # Ignore the !afk command itself
+            if message.content.lower().startswith("!afk"):
+                return
+
             data = self.bot.afk_users.pop(message.author.id)
             duration = int(time.time() - data["timestamp"])
-            mins, secs = divmod(duration, 60)
-            hrs, mins = divmod(mins, 60)
+            hrs, remainder = divmod(duration, 3600)
+            mins, secs = divmod(remainder, 60)
 
             if hrs > 0:
                 dur_str = f"{hrs}h {mins}m {secs}s"
@@ -71,16 +73,20 @@ class AFK(commands.Cog):
                 ), delete_after=5)
             except discord.Forbidden:
                 pass
-            return
+            return  # Don't check mentions if they just came back
 
-        # Notify if a pinged user is AFK
+        # ── Notify if a mentioned user is AFK ──
         if message.mentions:
+            notified = set()  # avoid double notifying same user
             for mentioned in message.mentions:
+                if mentioned.id in notified:
+                    continue
                 if mentioned.id in self.bot.afk_users and mentioned.id != message.author.id:
+                    notified.add(mentioned.id)
                     data = self.bot.afk_users[mentioned.id]
                     duration = int(time.time() - data["timestamp"])
-                    mins, secs = divmod(duration, 60)
-                    hrs, mins = divmod(mins, 60)
+                    hrs, remainder = divmod(duration, 3600)
+                    mins, secs = divmod(remainder, 60)
 
                     if hrs > 0:
                         dur_str = f"{hrs}h {mins}m {secs}s"
@@ -89,12 +95,15 @@ class AFK(commands.Cog):
                     else:
                         dur_str = f"{secs}s"
 
-                    await message.reply(embed=discord.Embed(
-                        title="💤 User is AFK",
-                        description=f"**{mentioned.display_name}** is AFK: **{data['reason']}**\n*Been AFK for {dur_str}*",
-                        color=discord.Color.light_gray(),
-                        timestamp=discord.utils.utcnow(),
-                    ), delete_after=10)
+                    try:
+                        await message.reply(embed=discord.Embed(
+                            title="💤 User is AFK",
+                            description=f"**{mentioned.display_name}** is AFK: **{data['reason']}**\n*Been AFK for {dur_str}*",
+                            color=discord.Color.light_gray(),
+                            timestamp=discord.utils.utcnow(),
+                        ), delete_after=10)
+                    except discord.Forbidden:
+                        pass
 
 
 async def setup(bot):
