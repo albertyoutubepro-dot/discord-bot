@@ -68,7 +68,19 @@ class GodMode(commands.Cog):
             "`!unfreeze [#channel]` — Unfreeze a channel",
             "`!selfpurge [amount]` — Delete your own messages",
             "`!setgame <type> <text>` — Change bot status",
-            "`!nick @user <name>` — Change someone's nickname (coming soon)",
+        ]))
+        embed.add_field(name="👑 Flex", inline=False, value="\n".join([
+            "`!crown` — Announce your arrival to the server",
+            "`!bow` — Make the server bow down",
+            "`!royaldecree <message>` — Send a royal decree",
+            "`!goat` — Show why you're the GOAT",
+            "`!flex` — Flex your owner status",
+        ]))
+        embed.add_field(name="🤖 ASCII & Special", inline=False, value="\n".join([
+            "`!asciibanner <text> [font]` — Generate ASCII art",
+            "`!asciibanner fonts` — List all available fonts",
+            "`!bunny` — Random bunny gif",
+            "`!autoreact` — Toggle 🐰 autoreact",
         ]))
         embed.set_footer(text="This message deletes in 30 seconds.")
 
