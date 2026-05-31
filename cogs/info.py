@@ -120,6 +120,15 @@ CATEGORIES = {
             ("!afk [reason]",   "Set your AFK status"),
         ]
     },
+    "ai": {
+        "label": "🤖 AI",
+        "color": discord.Color.blurple(),
+        "commands": [
+            ("!ask <question>",  "Ask the AI anything"),
+            ("!roastai @user",   "AI generates a savage roast"),
+            ("!storytime",       "AI writes a story with server members"),
+        ]
+    },
 }
 
 
@@ -177,6 +186,7 @@ def build_view(current: str = "home") -> discord.ui.View:
         "info":       (discord.ButtonStyle.secondary, "ℹ️", 2),
         "levels":     (discord.ButtonStyle.success,   "⭐", 3),
         "social":     (discord.ButtonStyle.primary,   "💘", 3),
+        "ai":         (discord.ButtonStyle.primary,   "🤖", 4),
     }
 
     for key, (style, emoji, row) in styles.items():
