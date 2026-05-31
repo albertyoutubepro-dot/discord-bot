@@ -4,20 +4,20 @@ import aiohttp
 import random
 import os
 
-GROK_API_KEY = os.getenv("GROK_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
-async def ask_grok(prompt: str, system: str = "You are a helpful assistant.") -> str:
-    """Send a prompt to Grok and return the response."""
+async def ask_groq(prompt: str, system: str = "You are a helpful assistant.") -> str:
+    """Send a prompt to Groq and return the response."""
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "https://api.x.ai/v1/chat/completions",
+            "https://api.groq.com/openai/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {GROK_API_KEY}",
+                "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json",
             },
             json={
-                "model": "grok-3-latest",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": prompt},
@@ -40,9 +40,9 @@ class AICommands(commands.Cog):
     # ─── !ask ─────────────────────────────────────────────────────────────────
     @commands.command(name="ask", usage="<question>")
     async def ask(self, ctx, *, question: str):
-        """Ask Grok AI any question. Owner only."""
+        """Ask the AI any question."""
         async with ctx.typing():
-            response = await ask_grok(question)
+            response = await ask_groq(question)
 
         if len(response) <= 4096:
             embed = discord.Embed(
@@ -51,7 +51,7 @@ class AICommands(commands.Cog):
             )
             embed.add_field(name="❓ Question", value=question[:1024], inline=False)
             embed.add_field(name="🤖 Answer",   value=response[:1024], inline=False)
-            embed.set_footer(text="Powered by Grok AI")
+            embed.set_footer(text="Powered by Groq AI")
             await ctx.reply(embed=embed)
         else:
             chunks = [response[i:i+1900] for i in range(0, len(response), 1900)]
@@ -62,7 +62,7 @@ class AICommands(commands.Cog):
     # ─── !roastai ─────────────────────────────────────────────────────────────
     @commands.command(name="roastai", usage="<@user>")
     async def roastai(self, ctx, member: discord.Member):
-        """Grok AI generates a savage custom roast. Owner only."""
+        """AI generates a savage custom roast."""
         if member == ctx.author:
             return await ctx.reply("❌ You can't roast yourself!")
 
@@ -76,11 +76,10 @@ class AICommands(commands.Cog):
         - Roles: {', '.join(roles) if roles else 'no roles (literally nobody)'}
         - Days in server: {join_days}
         - Account age: {account_days} days
-
-        Make it funny and cutting but not actually mean spirited. No slurs."""
+        Make it funny and cutting but not mean spirited. No slurs."""
 
         async with ctx.typing():
-            roast = await ask_grok(prompt, system="You are a savage but funny roast comedian. Keep it under 3 sentences.")
+            roast = await ask_groq(prompt, system="You are a savage but funny roast comedian. Keep it under 3 sentences.")
 
         embed = discord.Embed(
             title=f"🔥 AI Roast — {member.display_name}",
@@ -89,13 +88,13 @@ class AICommands(commands.Cog):
             timestamp=discord.utils.utcnow(),
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.set_footer(text="Powered by Grok AI")
+        embed.set_footer(text="Powered by Groq AI")
         await ctx.reply(embed=embed)
 
     # ─── !storytime ───────────────────────────────────────────────────────────
     @commands.command(name="storytime")
     async def storytime(self, ctx):
-        """Grok AI generates a short story starring random server members. Owner only."""
+        """AI generates a short story starring random server members."""
         members = [m for m in ctx.guild.members if not m.bot]
         cast = random.sample(members, min(4, len(members)))
         cast_names = [m.display_name for m in cast]
@@ -108,7 +107,7 @@ class AICommands(commands.Cog):
         Make it entertaining, reference their names naturally. Keep it fun and appropriate."""
 
         async with ctx.typing():
-            story = await ask_grok(prompt, system="You are a creative storyteller who writes fun short stories. Keep it under 200 words.")
+            story = await ask_groq(prompt, system="You are a creative storyteller who writes fun short stories. Keep it under 200 words.")
 
         embed = discord.Embed(
             title=f"📖 Story Time — {genre.title()}",
@@ -121,7 +120,7 @@ class AICommands(commands.Cog):
             value=" • ".join(m.mention for m in cast),
             inline=False
         )
-        embed.set_footer(text="Powered by Grok AI")
+        embed.set_footer(text="Powered by Groq AI")
         await ctx.reply(embed=embed)
 
 
