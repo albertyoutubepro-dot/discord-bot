@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
-import time
 import asyncio
+import time
 from collections import defaultdict
 
 OWNER_ID = 1446215395358015559
@@ -22,12 +22,16 @@ class AntiNuke(commands.Cog):
         self.bot = bot
         self.action_log = defaultdict(lambda: defaultdict(list))
         self.punished = defaultdict(set)
-        self.channel_cache = {}  # guild_id -> { channel_id -> { name, position, category_id, overwrites, topic, type } }
+        self.channel_cache = {}
 
         if not hasattr(bot, 'antinuke_enabled'):
             bot.antinuke_enabled = set()
         if not hasattr(bot, 'antinuke_whitelist'):
             bot.antinuke_whitelist = defaultdict(set)
+
+    @property
+    def db(self):
+        return self.bot.cogs.get("Database")
 
     # ─── Helpers ──────────────────────────────────────────────────────────────
     def is_whitelisted(self, guild_id, user_id):
@@ -49,8 +53,7 @@ class AntiNuke(commands.Cog):
         return len(self.action_log[guild_id][key]) >= limit
 
     async def get_auditor(self, guild, action, max_age=3):
-        """Get auditor from audit log, only if the entry is recent."""
-        await asyncio.sleep(0.5)  # small delay to let audit log populate
+        await asyncio.sleep(0.5)
         try:
             async for entry in guild.audit_logs(limit=5, action=action):
                 age = (discord.utils.utcnow() - entry.created_at).total_seconds()
@@ -61,14 +64,12 @@ class AntiNuke(commands.Cog):
         return None
 
     async def punish(self, guild, member, action, extra=""):
-        """Ban the nuker and strip roles."""
         if member.id in self.punished[guild.id]:
             return
         if self.is_whitelisted(guild.id, member.id):
             return
         self.punished[guild.id].add(member.id)
 
-        # Strip all roles first
         try:
             roles_to_remove = [r for r in member.roles if r != guild.default_role and r < guild.me.top_role]
             if roles_to_remove:
@@ -76,16 +77,13 @@ class AntiNuke(commands.Cog):
         except discord.Forbidden:
             pass
 
-        # Ban the nuker
         try:
             await guild.ban(member, reason=f"Anti-Nuke: {action}", delete_message_days=0)
         except discord.Forbidden:
             pass
 
-        # Log alert
         await self.send_log(guild, member, action, extra, banned=True)
 
-        # Clear their log
         for key in list(self.action_log[guild.id].keys()):
             if key.startswith(str(member.id)):
                 del self.action_log[guild.id][key]
@@ -114,26 +112,20 @@ class AntiNuke(commands.Cog):
             pass
 
     async def restore_channel(self, guild, channel_data):
-        """Recreate a deleted channel from cache."""
         try:
             category = guild.get_channel(channel_data["category_id"]) if channel_data["category_id"] else None
             if channel_data["type"] == discord.ChannelType.text:
                 new_ch = await guild.create_text_channel(
-                    name=channel_data["name"],
-                    category=category,
-                    topic=channel_data.get("topic"),
-                    reason="Anti-Nuke: channel restore",
+                    name=channel_data["name"], category=category,
+                    topic=channel_data.get("topic"), reason="Anti-Nuke: channel restore",
                 )
             elif channel_data["type"] == discord.ChannelType.voice:
                 new_ch = await guild.create_voice_channel(
-                    name=channel_data["name"],
-                    category=category,
-                    reason="Anti-Nuke: channel restore",
+                    name=channel_data["name"], category=category, reason="Anti-Nuke: channel restore",
                 )
             else:
                 return
 
-            # Restore permission overwrites
             for target_id, overwrite_data in channel_data.get("overwrites", {}).items():
                 target = guild.get_role(target_id) or guild.get_member(target_id)
                 if target:
@@ -153,7 +145,7 @@ class AntiNuke(commands.Cog):
         except Exception as e:
             print(f"[ANTINUKE] Failed to restore channel: {e}")
 
-    # ─── Cache channels on ready ──────────────────────────────────────────────
+    # ─── Channel cache ────────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_ready(self):
         for guild in self.bot.guilds:
@@ -189,15 +181,12 @@ class AntiNuke(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
         guild = channel.guild
-        # Get cached data before it's gone
         cached = self.channel_cache.get(guild.id, {}).get(channel.id)
-
         auditor = await self.get_auditor(guild, discord.AuditLogAction.channel_delete)
         if auditor and self.track(guild.id, auditor.id, "channel_delete"):
             member = guild.get_member(auditor.id)
             if member:
                 await self.punish(guild, member, "Mass Channel Delete", f"Deleted #{channel.name}")
-                # Restore the channel
                 if cached and guild.id in self.bot.antinuke_enabled:
                     await self.restore_channel(guild, cached)
 
@@ -274,6 +263,8 @@ class AntiNuke(commands.Cog):
         self.bot.antinuke_enabled.add(ctx.guild.id)
         self.punished[ctx.guild.id].clear()
         self.cache_guild_channels(ctx.guild)
+        if self.db:
+            await self.db.save_antinuke_enabled(ctx.guild.id, True)
         await ctx.reply(embed=discord.Embed(
             title="🛡️ Anti-Nuke Enabled",
             description="\n".join([
@@ -296,6 +287,8 @@ class AntiNuke(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def antinuke_disable(self, ctx):
         self.bot.antinuke_enabled.discard(ctx.guild.id)
+        if self.db:
+            await self.db.save_antinuke_enabled(ctx.guild.id, False)
         await ctx.reply(embed=discord.Embed(
             title="🛡️ Anti-Nuke Disabled",
             color=discord.Color.orange(),
@@ -314,17 +307,19 @@ class AntiNuke(commands.Cog):
             color=discord.Color.green() if enabled else discord.Color.red(),
             timestamp=discord.utils.utcnow(),
         )
-        embed.add_field(name="Status",           value="🟢 Enabled" if enabled else "🔴 Disabled", inline=True)
-        embed.add_field(name="Cached Channels",  value=str(cached),  inline=True)
-        embed.add_field(name="Whitelist",        value=wl_mentions,  inline=False)
-        embed.add_field(name="Punishment",       value="Ban + Role Strip", inline=True)
-        embed.add_field(name="Channel Restore",  value="✅ Enabled",  inline=True)
+        embed.add_field(name="Status",          value="🟢 Enabled" if enabled else "🔴 Disabled", inline=True)
+        embed.add_field(name="Cached Channels", value=str(cached),  inline=True)
+        embed.add_field(name="Whitelist",       value=wl_mentions,  inline=False)
+        embed.add_field(name="Punishment",      value="Ban + Role Strip", inline=True)
+        embed.add_field(name="Channel Restore", value="✅ Enabled",  inline=True)
         await ctx.reply(embed=embed)
 
     @antinuke.command(name="whitelist")
     @commands.has_permissions(administrator=True)
     async def antinuke_whitelist_cmd(self, ctx, member: discord.Member):
         self.bot.antinuke_whitelist[ctx.guild.id].add(member.id)
+        if self.db:
+            await self.db.save_antinuke_whitelist_add(ctx.guild.id, member.id)
         await ctx.reply(embed=discord.Embed(
             title="✅ Whitelisted",
             description=f"{member.mention} is now exempt from anti-nuke.",
@@ -335,6 +330,8 @@ class AntiNuke(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def antinuke_unwhitelist_cmd(self, ctx, member: discord.Member):
         self.bot.antinuke_whitelist[ctx.guild.id].discard(member.id)
+        if self.db:
+            await self.db.save_antinuke_whitelist_remove(ctx.guild.id, member.id)
         await ctx.reply(embed=discord.Embed(
             title="❌ Removed from Whitelist",
             description=f"{member.mention} is no longer exempt.",
