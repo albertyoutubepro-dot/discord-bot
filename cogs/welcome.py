@@ -6,12 +6,15 @@ class Welcome(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @property
+    def db(self):
+        return self.bot.cogs.get("Database")
+
     # ─── Auto-role on join ────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         guild_id = member.guild.id
 
-        # Give auto-role if set
         role_id = self.bot.autorole.get(guild_id)
         if role_id:
             role = member.guild.get_role(role_id)
@@ -21,12 +24,10 @@ class Welcome(commands.Cog):
                 except discord.Forbidden:
                     pass
 
-        # Send welcome message if set
         config = self.bot.welcome_config.get(guild_id)
         if config:
             channel = member.guild.get_channel(config["channel_id"])
             if channel:
-                # Build the message, replacing placeholders
                 msg = config["message"] \
                     .replace("{user}", member.mention) \
                     .replace("{username}", member.display_name) \
@@ -41,7 +42,6 @@ class Welcome(commands.Cog):
                 embed.set_author(name=f"Welcome to {member.guild.name}!", icon_url=member.guild.icon.url if member.guild.icon else None)
                 embed.set_thumbnail(url=member.display_avatar.url)
                 embed.set_footer(text=f"Member #{member.guild.member_count}")
-
                 try:
                     await channel.send(embed=embed)
                 except discord.Forbidden:
@@ -59,14 +59,11 @@ class Welcome(commands.Cog):
             "`!setwelcome test` — Send a test welcome message",
             "`!setwelcome status` — Show current welcome config",
             "",
-            "**Placeholders you can use in your message:**",
+            "**Placeholders:**",
             "`{user}` — Mentions the new member",
             "`{username}` — Their display name",
             "`{server}` — Server name",
             "`{count}` — Current member count",
-            "",
-            "**Example:**",
-            "`!setwelcome set #welcome Hey {user}, welcome to {server}! You're member #{count} 🎉`",
         ]))
 
     @setwelcome.command(name="set")
@@ -77,6 +74,8 @@ class Welcome(commands.Cog):
             "channel_id": channel.id,
             "message": message,
         }
+        if self.db:
+            await self.db.save_welcome(ctx.guild.id, channel.id, message)
         await ctx.reply(embed=discord.Embed(
             title="✅ Welcome Message Set",
             color=discord.Color.green(),
@@ -89,6 +88,8 @@ class Welcome(commands.Cog):
     async def setwelcome_disable(self, ctx):
         """Disable welcome messages."""
         self.bot.welcome_config.pop(ctx.guild.id, None)
+        if self.db:
+            await self.db.save_welcome(ctx.guild.id, None, None)
         await ctx.reply(embed=discord.Embed(
             title="🔕 Welcome Messages Disabled",
             color=discord.Color.orange(),
@@ -102,26 +103,18 @@ class Welcome(commands.Cog):
         config = self.bot.welcome_config.get(ctx.guild.id)
         if not config:
             return await ctx.reply("❌ No welcome message set. Use `!setwelcome set` first.")
-
         channel = ctx.guild.get_channel(config["channel_id"])
         if not channel:
             return await ctx.reply("❌ Welcome channel not found. Please set it again.")
-
         msg = config["message"] \
             .replace("{user}", ctx.author.mention) \
             .replace("{username}", ctx.author.display_name) \
             .replace("{server}", ctx.guild.name) \
             .replace("{count}", str(ctx.guild.member_count))
-
-        embed = discord.Embed(
-            description=msg,
-            color=discord.Color.green(),
-            timestamp=discord.utils.utcnow(),
-        )
+        embed = discord.Embed(description=msg, color=discord.Color.green(), timestamp=discord.utils.utcnow())
         embed.set_author(name=f"Welcome to {ctx.guild.name}!", icon_url=ctx.guild.icon.url if ctx.guild.icon else None)
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         embed.set_footer(text=f"Member #{ctx.guild.member_count} • This is a test")
-
         await channel.send(embed=embed)
         await ctx.reply(f"✅ Test welcome message sent to {channel.mention}!")
 
@@ -132,7 +125,6 @@ class Welcome(commands.Cog):
         config = self.bot.welcome_config.get(ctx.guild.id)
         if not config:
             return await ctx.reply("❌ Welcome messages are currently **disabled**.")
-
         channel = ctx.guild.get_channel(config["channel_id"])
         await ctx.reply(embed=discord.Embed(
             title="📋 Welcome Config",
@@ -159,8 +151,10 @@ class Welcome(commands.Cog):
     async def autorole_set(self, ctx, role: discord.Role):
         """Set the role to give new members automatically."""
         if role >= ctx.guild.me.top_role:
-            return await ctx.reply("❌ That role is higher than my highest role. Please move my role above it.")
+            return await ctx.reply("❌ That role is higher than my highest role.")
         self.bot.autorole[ctx.guild.id] = role.id
+        if self.db:
+            await self.db.save_autorole(ctx.guild.id, role.id)
         await ctx.reply(embed=discord.Embed(
             title="✅ Autorole Set",
             description=f"New members will automatically receive {role.mention}.",
@@ -173,6 +167,8 @@ class Welcome(commands.Cog):
     async def autorole_disable(self, ctx):
         """Disable autorole."""
         self.bot.autorole.pop(ctx.guild.id, None)
+        if self.db:
+            await self.db.save_autorole(ctx.guild.id, None)
         await ctx.reply(embed=discord.Embed(
             title="🔕 Autorole Disabled",
             color=discord.Color.orange(),
