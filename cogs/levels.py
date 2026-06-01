@@ -3,17 +3,14 @@ from discord.ext import commands
 import aiosqlite
 import asyncio
 import time
-import math
-import os
+import random
 
 DB_PATH = "death_bot.db"
 
 def xp_for_level(level: int) -> int:
-    """XP required to reach a given level."""
     return 5 * (level ** 2) + 50 * level + 100
 
 def level_from_xp(xp: int) -> int:
-    """Calculate level from total XP."""
     level = 0
     while xp >= xp_for_level(level):
         xp -= xp_for_level(level)
@@ -21,7 +18,6 @@ def level_from_xp(xp: int) -> int:
     return level
 
 def xp_progress(total_xp: int):
-    """Returns (current_level, xp_into_level, xp_needed_for_next)."""
     level = 0
     remaining = total_xp
     while remaining >= xp_for_level(level):
@@ -33,13 +29,17 @@ def xp_progress(total_xp: int):
 class Levels(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.xp_cooldown = {}  # user_id -> last_xp_time (60s cooldown)
-        self.vc_join_time = {}  # member_id:guild_id -> join timestamp
+        self.xp_cooldown = {}
+        self.vc_join_time = {}
         if not hasattr(bot, 'level_channels'):
-            bot.level_channels = {}  # guild_id -> channel_id
+            bot.level_channels = {}
         if not hasattr(bot, 'level_roles'):
-            bot.level_roles = {}  # guild_id -> { level: role_id }
+            bot.level_roles = {}
         self.bot.loop.create_task(self.setup_db())
+
+    @property
+    def db(self):
+        return self.bot.cogs.get("Database")
 
     async def setup_db(self):
         async with aiosqlite.connect(DB_PATH) as db:
@@ -56,9 +56,9 @@ class Levels(commands.Cog):
             """)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS message_log (
-                    user_id     INTEGER,
-                    guild_id    INTEGER,
-                    timestamp   INTEGER
+                    user_id   INTEGER,
+                    guild_id  INTEGER,
+                    timestamp INTEGER
                 )
             """)
             await db.commit()
@@ -136,43 +136,35 @@ class Levels(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
             return
-
-        user_id = message.author.id
+        user_id  = message.author.id
         guild_id = message.guild.id
-        now = time.time()
+        now      = time.time()
 
-        # Log message for stats
         await self.log_message(user_id, guild_id)
 
-        # XP cooldown — 1 minute between XP gains
         last = self.xp_cooldown.get(f"{user_id}:{guild_id}", 0)
         if now - last < 60:
             return
         self.xp_cooldown[f"{user_id}:{guild_id}"] = now
 
-        # Get XP before
-        data_before = await self.get_user(user_id, guild_id)
+        data_before  = await self.get_user(user_id, guild_id)
         level_before = level_from_xp(data_before["xp"])
 
-        # Add 15-25 random XP
-        import random
         xp_gained = random.randint(15, 25)
         await self.add_xp(user_id, guild_id, xp_gained)
 
-        # Check level up
-        data_after = await self.get_user(user_id, guild_id)
+        data_after  = await self.get_user(user_id, guild_id)
         level_after = level_from_xp(data_after["xp"])
 
         if level_after > level_before:
             await self.handle_level_up(message, level_after)
 
     async def handle_level_up(self, message: discord.Message, new_level: int):
-        guild = message.guild
+        guild  = message.guild
         member = message.author
 
-        # Send level up message
         channel_id = self.bot.level_channels.get(guild.id)
-        channel = guild.get_channel(channel_id) if channel_id else message.channel
+        channel    = guild.get_channel(channel_id) if channel_id else message.channel
 
         embed = discord.Embed(
             title="⬆️ Level Up!",
@@ -181,13 +173,11 @@ class Levels(commands.Cog):
             timestamp=discord.utils.utcnow(),
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-
         try:
             await channel.send(embed=embed)
         except discord.Forbidden:
             pass
 
-        # Give level role if set
         level_roles = self.bot.level_roles.get(guild.id, {})
         if new_level in level_roles:
             role = guild.get_role(level_roles[new_level])
@@ -203,12 +193,8 @@ class Levels(commands.Cog):
         if member.bot:
             return
         key = f"{member.id}:{member.guild.id}"
-
-        # Joined VC
         if before.channel is None and after.channel is not None:
             self.vc_join_time[key] = time.time()
-
-        # Left VC
         elif before.channel is not None and after.channel is None:
             join_time = self.vc_join_time.pop(key, None)
             if join_time:
@@ -220,15 +206,14 @@ class Levels(commands.Cog):
     @commands.command(name="rank", usage="[@user]")
     async def rank(self, ctx, member: discord.Member = None):
         """Show your rank card with level, XP and stats."""
-        member = member or ctx.author
-        data = await self.get_user(member.id, ctx.guild.id)
-        rank = await self.get_rank(member.id, ctx.guild.id)
+        member  = member or ctx.author
+        data    = await self.get_user(member.id, ctx.guild.id)
+        rank    = await self.get_rank(member.id, ctx.guild.id)
         monthly = await self.get_monthly_messages(member.id, ctx.guild.id)
 
         level, xp_into, xp_needed = xp_progress(data["xp"])
         progress = int((xp_into / xp_needed) * 10) if xp_needed > 0 else 10
         bar = "█" * progress + "░" * (10 - progress)
-
         hours, mins = divmod(data["vc_minutes"], 60)
 
         embed = discord.Embed(
@@ -236,13 +221,13 @@ class Levels(commands.Cog):
             timestamp=discord.utils.utcnow(),
         )
         embed.set_author(name=f"{member.display_name}'s Rank", icon_url=member.display_avatar.url)
-        embed.add_field(name="🏆 Rank",         value=f"#{rank}",                     inline=True)
-        embed.add_field(name="⭐ Level",         value=str(level),                     inline=True)
-        embed.add_field(name="✨ Total XP",      value=str(data["xp"]),                inline=True)
-        embed.add_field(name="📊 XP Progress",   value=f"`[{bar}]` {xp_into}/{xp_needed}", inline=False)
-        embed.add_field(name="💬 Total Messages", value=str(data["messages"]),          inline=True)
-        embed.add_field(name="📅 Last 30 Days",  value=f"{monthly} messages",          inline=True)
-        embed.add_field(name="🎙️ VC Time",       value=f"{hours}h {mins}m",            inline=True)
+        embed.add_field(name="🏆 Rank",           value=f"#{rank}",                      inline=True)
+        embed.add_field(name="⭐ Level",           value=str(level),                      inline=True)
+        embed.add_field(name="✨ Total XP",        value=str(data["xp"]),                 inline=True)
+        embed.add_field(name="📊 XP Progress",     value=f"`[{bar}]` {xp_into}/{xp_needed}", inline=False)
+        embed.add_field(name="💬 Total Messages",  value=str(data["messages"]),            inline=True)
+        embed.add_field(name="📅 Last 30 Days",    value=f"{monthly} messages",            inline=True)
+        embed.add_field(name="🎙️ VC Time",         value=f"{hours}h {mins}m",              inline=True)
         embed.set_thumbnail(url=member.display_avatar.url)
         await ctx.reply(embed=embed)
 
@@ -254,11 +239,11 @@ class Levels(commands.Cog):
         if not rows:
             return await ctx.reply("❌ No data yet — start chatting to earn XP!")
 
-        lines = []
+        lines  = []
         medals = ["🥇", "🥈", "🥉"]
         for i, (user_id, xp, messages, vc_minutes) in enumerate(rows):
             member = ctx.guild.get_member(user_id)
-            name = member.display_name if member else f"Unknown ({user_id})"
+            name   = member.display_name if member else f"Unknown ({user_id})"
             level, _, _ = xp_progress(xp)
             prefix = medals[i] if i < 3 else f"**#{i+1}**"
             hours, mins = divmod(vc_minutes, 60)
@@ -277,21 +262,20 @@ class Levels(commands.Cog):
     @commands.command(name="stats", usage="[@user]")
     async def stats(self, ctx, member: discord.Member = None):
         """Show detailed activity stats for a member."""
-        member = member or ctx.author
-        data = await self.get_user(member.id, ctx.guild.id)
-        rank = await self.get_rank(member.id, ctx.guild.id)
+        member  = member or ctx.author
+        data    = await self.get_user(member.id, ctx.guild.id)
+        rank    = await self.get_rank(member.id, ctx.guild.id)
         monthly = await self.get_monthly_messages(member.id, ctx.guild.id)
         level, xp_into, xp_needed = xp_progress(data["xp"])
         hours, mins = divmod(data["vc_minutes"], 60)
 
-        # Weekly messages
         seven_days_ago = int(time.time()) - (7 * 24 * 60 * 60)
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute(
                 "SELECT COUNT(*) FROM message_log WHERE user_id=? AND guild_id=? AND timestamp > ?",
                 (member.id, ctx.guild.id, seven_days_ago)
             ) as cursor:
-                row = await cursor.fetchone()
+                row    = await cursor.fetchone()
                 weekly = row[0] if row else 0
 
         embed = discord.Embed(
@@ -300,15 +284,15 @@ class Levels(commands.Cog):
             timestamp=discord.utils.utcnow(),
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="🏆 Server Rank",    value=f"#{rank}",          inline=True)
-        embed.add_field(name="⭐ Level",           value=str(level),          inline=True)
-        embed.add_field(name="✨ XP",              value=f"{xp_into}/{xp_needed} (total: {data['xp']})", inline=True)
-        embed.add_field(name="💬 Total Messages",  value=str(data["messages"]), inline=True)
-        embed.add_field(name="📅 Last 30 Days",    value=f"{monthly} messages", inline=True)
-        embed.add_field(name="📆 Last 7 Days",     value=f"{weekly} messages",  inline=True)
-        embed.add_field(name="🎙️ Total VC Time",   value=f"{hours}h {mins}m",   inline=True)
-        embed.add_field(name="📅 Joined Server",   value=discord.utils.format_dt(member.joined_at, "R"), inline=True)
-        embed.add_field(name="🗓️ Account Age",     value=discord.utils.format_dt(member.created_at, "R"), inline=True)
+        embed.add_field(name="🏆 Server Rank",   value=f"#{rank}",            inline=True)
+        embed.add_field(name="⭐ Level",          value=str(level),            inline=True)
+        embed.add_field(name="✨ XP",             value=f"{xp_into}/{xp_needed} (total: {data['xp']})", inline=True)
+        embed.add_field(name="💬 Total Messages", value=str(data["messages"]), inline=True)
+        embed.add_field(name="📅 Last 30 Days",   value=f"{monthly} messages", inline=True)
+        embed.add_field(name="📆 Last 7 Days",    value=f"{weekly} messages",  inline=True)
+        embed.add_field(name="🎙️ Total VC Time",  value=f"{hours}h {mins}m",   inline=True)
+        embed.add_field(name="📅 Joined Server",  value=discord.utils.format_dt(member.joined_at, "R"),  inline=True)
+        embed.add_field(name="🗓️ Account Age",    value=discord.utils.format_dt(member.created_at, "R"), inline=True)
         await ctx.reply(embed=embed)
 
     # ─── !setlevelchannel ─────────────────────────────────────────────────────
@@ -318,8 +302,12 @@ class Levels(commands.Cog):
         """Set the channel for level up notifications."""
         if channel is None:
             self.bot.level_channels.pop(ctx.guild.id, None)
+            if self.db:
+                await self.db.save_level_channel(ctx.guild.id, None)
             return await ctx.reply("✅ Level up notifications will now appear in the same channel as the message.")
         self.bot.level_channels[ctx.guild.id] = channel.id
+        if self.db:
+            await self.db.save_level_channel(ctx.guild.id, channel.id)
         await ctx.reply(embed=discord.Embed(
             title="✅ Level Channel Set",
             description=f"Level up notifications will be sent to {channel.mention}.",
@@ -334,6 +322,8 @@ class Levels(commands.Cog):
         if ctx.guild.id not in self.bot.level_roles:
             self.bot.level_roles[ctx.guild.id] = {}
         self.bot.level_roles[ctx.guild.id][level] = role.id
+        if self.db:
+            await self.db.save_level_role(ctx.guild.id, level, role.id)
         await ctx.reply(embed=discord.Embed(
             title="✅ Level Role Set",
             description=f"Members will receive {role.mention} when they reach **Level {level}**.",
