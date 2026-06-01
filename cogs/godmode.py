@@ -16,7 +16,11 @@ class GodMode(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         if not hasattr(bot, 'bot_banned'):
-            bot.bot_banned = set()  # user_ids banned from using the bot
+            bot.bot_banned = set()
+
+    @property
+    def db(self):
+        return self.bot.cogs.get("Database")
 
     # ─── !ownerhelp ───────────────────────────────────────────────────────────
     @commands.command(name="ownerhelp")
@@ -52,6 +56,7 @@ class GodMode(commands.Cog):
             "`!servers` — List all servers bot is in",
             "`!botstats` — Detailed stats on all servers",
             "`!lookup <user_id>` — Get info on any user",
+            "`!whois <user_id>` — Deep lookup across all servers",
             "`!botstatus` — Uptime, ping, memory",
             "`!info` — Bot website and links",
         ]))
@@ -62,6 +67,7 @@ class GodMode(commands.Cog):
             "`!echo` — Toggle echo mode",
             "`!autoreact` — Toggle 🐰 autoreact",
             "`!bunny` — Random bunny gif",
+            "`!crypto` — Random crypto meme gif",
         ]))
         embed.add_field(name="⚡ Power Tools", inline=False, value="\n".join([
             "`!freeze [#channel]` — Freeze a channel",
@@ -79,11 +85,10 @@ class GodMode(commands.Cog):
         embed.add_field(name="🤖 ASCII & Special", inline=False, value="\n".join([
             "`!asciibanner <text> [font]` — Generate ASCII art",
             "`!asciibanner fonts` — List all available fonts",
-            "`!bunny` — Random bunny gif",
-            "`!autoreact` — Toggle 🐰 autoreact",
+            "`!update <version> <changes>` — Post a changelog update",
+            "`!setchangelog #channel` — Set the changelog channel",
         ]))
         embed.set_footer(text="This message deletes in 30 seconds.")
-
         msg = await ctx.send(embed=embed)
         await asyncio.sleep(30)
         await msg.delete()
@@ -103,8 +108,7 @@ class GodMode(commands.Cog):
             if channel:
                 try:
                     embed = discord.Embed(
-                        description=message,
-                        color=discord.Color.red(),
+                        description=message, color=discord.Color.red(),
                         timestamp=discord.utils.utcnow(),
                     )
                     embed.set_author(name="Global Announcement", icon_url=self.bot.user.display_avatar.url)
@@ -133,7 +137,6 @@ class GodMode(commands.Cog):
                 success += 1
             except Exception:
                 failed += 1
-
         await ctx.reply(embed=discord.Embed(
             title="🔨 Global Ban",
             color=discord.Color.red(), timestamp=discord.utils.utcnow(),
@@ -158,7 +161,6 @@ class GodMode(commands.Cog):
                     failed += 1
             else:
                 failed += 1
-
         await ctx.reply(embed=discord.Embed(
             title="👢 Global Kick",
             color=discord.Color.orange(), timestamp=discord.utils.utcnow(),
@@ -172,6 +174,8 @@ class GodMode(commands.Cog):
     async def blacklist(self, ctx, user_id: int):
         """Blacklist a user from every server the bot is in (ban + bot ban)."""
         self.bot.bot_banned.add(user_id)
+        if self.db:
+            await self.db.save_bot_ban(user_id)
         success, failed = 0, 0
         for guild in self.bot.guilds:
             try:
@@ -179,7 +183,6 @@ class GodMode(commands.Cog):
                 success += 1
             except Exception:
                 failed += 1
-
         await ctx.reply(embed=discord.Embed(
             title="⛔ User Blacklisted",
             description=f"User `{user_id}` has been banned from **{success}** servers and blocked from using the bot.",
@@ -192,6 +195,8 @@ class GodMode(commands.Cog):
     async def botban(self, ctx, user_id: int):
         """Ban a user from using the bot entirely."""
         self.bot.bot_banned.add(user_id)
+        if self.db:
+            await self.db.save_bot_ban(user_id)
         await ctx.reply(embed=discord.Embed(
             title="🚫 Bot Ban",
             description=f"User `{user_id}` can no longer use any bot commands.",
@@ -203,6 +208,8 @@ class GodMode(commands.Cog):
     async def botunban(self, ctx, user_id: int):
         """Remove a bot ban."""
         self.bot.bot_banned.discard(user_id)
+        if self.db:
+            await self.db.save_bot_unban(user_id)
         await ctx.reply(embed=discord.Embed(
             title="✅ Bot Ban Removed",
             description=f"User `{user_id}` can use the bot again.",
@@ -235,10 +242,8 @@ class GodMode(commands.Cog):
             member = guild.get_member(user_id)
             if member:
                 found.append(f"**{guild.name}** (`{guild.id}`) — joined {discord.utils.format_dt(member.joined_at, 'R')}")
-
         if not found:
             return await ctx.reply(f"❌ User `{user_id}` not found in any server.")
-
         await ctx.reply(embed=discord.Embed(
             title=f"🔍 User Found in {len(found)} Server(s)",
             description="\n".join(found)[:4096],
