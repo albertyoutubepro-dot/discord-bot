@@ -14,8 +14,11 @@ class Moderation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @property
+    def db(self):
+        return self.bot.cogs.get("Database")
+
     async def log(self, guild: discord.Guild, embed: discord.Embed):
-        """Send to the configured log channel if set."""
         channel_id = self.bot.log_channels.get(guild.id)
         if channel_id:
             channel = guild.get_channel(channel_id)
@@ -32,6 +35,8 @@ class Moderation(commands.Cog):
         """Set the log channel for mod actions. Leave blank to clear it."""
         if channel is None:
             self.bot.log_channels.pop(ctx.guild.id, None)
+            if self.db:
+                await self.db.save_log_channel(ctx.guild.id, None)
             return await ctx.reply(embed=discord.Embed(
                 title="📋 Log Channel Cleared",
                 description="Mod logs have been disabled.",
@@ -39,6 +44,8 @@ class Moderation(commands.Cog):
                 timestamp=discord.utils.utcnow(),
             ))
         self.bot.log_channels[ctx.guild.id] = channel.id
+        if self.db:
+            await self.db.save_log_channel(ctx.guild.id, channel.id)
         await ctx.reply(embed=discord.Embed(
             title="📋 Log Channel Set",
             description=f"Mod actions will now be logged in {channel.mention}.",
@@ -53,8 +60,6 @@ class Moderation(commands.Cog):
     async def ban(self, ctx, member: discord.Member, delete_days: int = 0, *, reason: str = "No reason provided"):
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             return await ctx.reply("❌ You can't ban someone with an equal or higher role than you.")
-        if not member.guild_permissions.administrator and not ctx.guild.me.guild_permissions.ban_members:
-            return await ctx.reply("❌ I cannot ban this user (their role may be higher than mine).")
         try:
             await member.send(embed=discord.Embed(
                 title=f"You were banned from {ctx.guild.name}",
@@ -90,8 +95,6 @@ class Moderation(commands.Cog):
     async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             return await ctx.reply("❌ You can't kick someone with an equal or higher role.")
-        if not member.guild_permissions.administrator and not ctx.guild.me.guild_permissions.ban_members:
-            return await ctx.reply("❌ I cannot kick this user.")
         try:
             await member.send(embed=discord.Embed(
                 title=f"You were kicked from {ctx.guild.name}",
@@ -112,8 +115,6 @@ class Moderation(commands.Cog):
     async def mute(self, ctx, member: discord.Member, minutes: int, *, reason: str = "No reason provided"):
         if minutes < 1 or minutes > 40320:
             return await ctx.reply("❌ Duration must be between 1 and 40320 minutes (28 days).")
-        if not member.guild_permissions.administrator and not ctx.guild.me.guild_permissions.ban_members:
-            return await ctx.reply("❌ I cannot timeout this user.")
         import datetime
         until = discord.utils.utcnow() + datetime.timedelta(minutes=minutes)
         await member.timeout(until, reason=f"{ctx.author}: {reason}")
@@ -139,12 +140,18 @@ class Moderation(commands.Cog):
     @commands.has_permissions(moderate_members=True)
     async def warn(self, ctx, member: discord.Member, *, reason: str):
         key = f"{member.id}:{ctx.guild.id}"
-        self.bot.warn_data[key].append({
+        now = time.time()
+        warn_entry = {
             "reason": reason,
-            "timestamp": time.time(),
+            "timestamp": now,
             "moderator": str(ctx.author),
-        })
+        }
+        self.bot.warn_data[key].append(warn_entry)
         warn_count = len(self.bot.warn_data[key])
+
+        # Persist
+        if self.db:
+            await self.db.save_warn(member.id, ctx.guild.id, reason, str(ctx.author), now)
 
         try:
             await member.send(embed=discord.Embed(
@@ -162,7 +169,6 @@ class Moderation(commands.Cog):
         await ctx.reply(embed=embed)
         await self.log(ctx.guild, embed)
 
-        # ── Auto-ban at 3 warnings ──────────────────────────────────────────
         if warn_count >= 3:
             auto_reason = f"Auto-ban: reached {warn_count} warnings. Last: {reason}"
             try:
@@ -213,6 +219,8 @@ class Moderation(commands.Cog):
     async def clearwarnings(self, ctx, member: discord.Member):
         key = f"{member.id}:{ctx.guild.id}"
         self.bot.warn_data.pop(key, None)
+        if self.db:
+            await self.db.clear_warns(member.id, ctx.guild.id)
         embed = discord.Embed(
             title="🧹 Warnings Cleared",
             description=f"All warnings for **{member}** have been cleared.",
