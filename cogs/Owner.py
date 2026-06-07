@@ -3,7 +3,7 @@ from discord.ext import commands
 import random
 
 OWNER_ID = 1446215395358015559
-AUTOREACT_USERS = {1446215395358015559, 1430807402688548876}  # owner + extra user
+AUTOREACT_USERS = {1446215395358015559, 1507046852862673026}  # owner + extra user
 
 def is_owner():
     async def predicate(ctx):
