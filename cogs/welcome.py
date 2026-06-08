@@ -62,13 +62,3 @@
 
 async def setup(bot):
     await bot.add_cog(Welcome(bot))
-```
-eof
-
-### Ready to set it up:
-1. Replace your current `cogs/welcome.py` code with this updated file.
-2. Go to your Discord channel and run this exact command to configure your fancy new setup:
-   ```text
-   !setwelcome set #welcome {user} welcome to /preserved we hope you enjoy your stay 
-
-   https://i.pinimg.com/originals/36/19/8b/36198b95d50aab4db748e61b2bf28a6d.gif
