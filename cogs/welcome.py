@@ -59,5 +59,6 @@
             timestamp=discord.utils.utcnow(),
         ))
 
+
 async def setup(bot):
     await bot.add_cog(Welcome(bot))
