@@ -156,17 +156,78 @@ class Welcome(commands.Cog):
             
         channel = ctx.guild.get_channel(config["channel_id"])
         
+        # Avoid literal backticks inside f-string inside markdown block to prevent rendering errors
+        cb = "```"
+        msg_val = f"{cb}\n{config['message'][:500]}\n{cb}"
+        
         await ctx.reply(embed=discord.Embed(
             title="📋 Welcome Config",
             color=discord.Color.from_rgb(17, 2, 33),
             timestamp=discord.utils.utcnow(),
         ).add_field(name="Channel", value=channel.mention if channel else "Not found", inline=True
-        ).add_field(name="Message", value=f"
-http://googleusercontent.com/immersive_entry_chip/0
+        ).add_field(name="Message", value=msg_val, inline=False))
 
-***
+    # ─── !autorole ────────────────────────────────────────────────────────────
+    @commands.group(name="autorole", invoke_without_command=True)
+    @commands.has_permissions(administrator=True)
+    async def autorole(self, ctx):
+        """Manage the auto-role given to new members."""
+        await ctx.reply("\n".join([
+            "**Autorole Commands:**",
+            "`!autorole set <@role>` — Set the role to give new members",
+            "`!autorole disable`     — Disable autorole",
+            "`!autorole status`      — Show current autorole",
+        ]))
+
+    @autorole.command(name="set")
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    async def autorole_set(self, ctx, role: discord.Role):
+        """Set the role to give new members automatically."""
+        if role >= ctx.guild.me.top_role:
+            return await ctx.reply("❌ That role is higher than my highest role.")
+            
+        self.bot.autorole[ctx.guild.id] = role.id
+        if self.db:
+            await self.db.save_autorole(ctx.guild.id, role.id)
+            
+        await ctx.reply(embed=discord.Embed(
+            title="✅ Autorole Set",
+            description=f"New members will automatically receive {role.mention}.",
+            color=discord.Color.from_rgb(17, 2, 33),
+            timestamp=discord.utils.utcnow(),
+        ))
+
+    @autorole.command(name="disable")
+    @commands.has_permissions(administrator=True)
+    async def autorole_disable(self, ctx):
+        """Disable autorole."""
+        self.bot.autorole.pop(ctx.guild.id, None)
+        if self.db:
+            await self.db.save_autorole(ctx.guild.id, None)
+            
+        await ctx.reply(embed=discord.Embed(
+            title="🔕 Autorole Disabled",
+            color=discord.Color.from_rgb(17, 2, 33),
+            timestamp=discord.utils.utcnow(),
+        ))
+
+    @autorole.command(name="status")
+    @commands.has_permissions(administrator=True)
+    async def autorole_status(self, ctx):
+        """Show current autorole setting."""
+        role_id = self.bot.autorole.get(ctx.guild.id)
+        if not role_id:
+            return await ctx.reply("❌ Autorole is currently **disabled**.")
+            
+        role = ctx.guild.get_role(role_id)
+        await ctx.reply(embed=discord.Embed(
+            title="📋 Autorole Config",
+            description=f"New members receive: {role.mention if role else 'Role not found'}",
+            color=discord.Color.from_rgb(17, 2, 33),
+            timestamp=discord.utils.utcnow(),
+        ))
 
 
-http://googleusercontent.com/immersive_entry_chip/1
-http://googleusercontent.com/immersive_entry_chip/2
-eof
+async def setup(bot):
+    await bot.add_cog(Welcome(bot))
