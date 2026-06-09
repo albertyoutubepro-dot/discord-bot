@@ -72,15 +72,36 @@ class Quote(commands.Cog):
 
     # ─── Dynamic PIL Image Rendering Engine ──────────────────────────────────
     async def generate_quote_card(self, background_url: str, text: str, author_name: str) -> io.BytesIO:
-        """Downloads a background image, applies a dark overlay, draws centered text + bottom-right signature, and returns it."""
-        async with aiohttp.ClientSession() as session:
-            async with session.get(background_url) as resp:
-                if resp.status != 200:
-                    raise Exception("Failed to download quote background image.")
-                image_bytes = await resp.read()
+        """Downloads background image with smart headers & automatic fallbacks. Draws centered text + signature."""
+        # Browser-like headers to bypass bot blocks from image CDNs (like Unsplash and Pinterest)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
+        image_bytes = None
+        # Prepare a priority list of URLs to try (primary chosen, followed by up to 5 randomized retry backups)
+        urls_to_try = [background_url] + random.sample(self.scenery_pool, min(5, len(self.scenery_pool)))
+        
+        async with aiohttp.ClientSession(headers=headers) as session:
+            for url in urls_to_try:
+                try:
+                    async with session.get(url, timeout=5) as resp:
+                        if resp.status == 200:
+                            image_bytes = await resp.read()
+                            break
+                except Exception:
+                    continue
 
-        # Open image using Pillow
-        base_image = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+        # Open image safely or load absolute backup colored canvas if completely offline
+        if image_bytes:
+            try:
+                base_image = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+            except Exception:
+                # Solid velvet background fallback if image data is corrupted
+                base_image = Image.new("RGBA", (800, 500), (17, 2, 33, 255))
+        else:
+            # Solid velvet background fallback
+            base_image = Image.new("RGBA", (800, 500), (17, 2, 33, 255))
         
         # Standardize canvas size to make text layout predictable
         canvas_width, canvas_height = 800, 500
