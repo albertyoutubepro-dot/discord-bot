@@ -2,6 +2,9 @@ import discord
 from discord.ext import commands
 import re
 import random
+import io
+import aiohttp
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
 class Quote(commands.Cog):
     def __init__(self, bot):
@@ -45,41 +48,101 @@ class Quote(commands.Cog):
             "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3N0aTR6YWV3bW53YmU0ZWhvczFvYmRsZ2NpdWhpZnN5cW5pcnA3diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oz8xAFtqo0LYIkIwE/giphy.gif" # Scenic waterfall 3
         ]
 
-    # ─── Helper to Build Sleek Bleed/Greed Style Text ──────────────────────────
-    def build_quote_text(self, message: discord.Message) -> str:
-        """Compiles clean, text-only quote featuring the quote author's custom signature and a random image fallback."""
-        # Convert message timestamp to a relative Discord timestamp
-        unix_time = int(message.created_at.timestamp())
-        time_tag = f"<t:{unix_time}:R>"
+    # ─── Dynamic PIL Image Rendering Engine ──────────────────────────────────
+    async def generate_quote_card(self, background_url: str, text: str, author_name: str) -> io.BytesIO:
+        """Downloads a background image, applies a dark overlay, draws centered text + bottom-right signature, and returns it."""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(background_url) as resp:
+                if resp.status != 200:
+                    raise Exception("Failed to download quote background image.")
+                image_bytes = await resp.read()
+
+        # Open image using Pillow
+        base_image = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
         
-        # Bleed/Greed header style: **display name first letter** (or clean identifier)
-        header = f"**{message.author.display_name[0].lower()}**"
+        # Standardize canvas size to make text layout predictable
+        canvas_width, canvas_height = 800, 500
+        base_image = base_image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
         
-        # Blockquote the original message content safely
-        content = message.content or ""
-        if content:
-            blockquote_content = "\n".join(f"> {line}" for line in content.split("\n"))
-        else:
-            blockquote_content = "> *(No text content)*"
+        # Apply a subtle semi-transparent dark overlay to make white text highly readable
+        overlay = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 110)) # ~43% opacity black
+        final_image = Image.alpha_composite(base_image, overlay)
+        
+        draw = ImageDraw.Draw(final_image)
+        
+        # Font Configuration - Try to load system fonts, fallback to default
+        try:
+            # Standard Linux/Unix/Mac sans-serif fonts
+            main_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 34)
+            sig_font = ImageFont.truetype("DejaVuSans.ttf", 22)
+        except IOError:
+            try:
+                # Standard Windows sans-serif fonts
+                main_font = ImageFont.truetype("arial.ttf", 34)
+                sig_font = ImageFont.truetype("arial.ttf", 22)
+            except IOError:
+                # Safe fallback
+                main_font = ImageFont.load_default()
+                sig_font = ImageFont.load_default()
+
+        # 1. Format and Center the Quoted Message Text
+        wrapped_lines = []
+        max_chars_per_line = 36
+        words = text.split()
+        
+        current_line = []
+        for word in words:
+            if len(" ".join(current_line + [word])) <= max_chars_per_line:
+                current_line.append(word)
+            else:
+                wrapped_lines.append(" ".join(current_line))
+                current_line = [word]
+        if current_line:
+            wrapped_lines.append(" ".join(current_line))
+
+        # Handle drawing multi-line centered text
+        line_height = 42
+        total_text_height = len(wrapped_lines) * line_height
+        start_y = (canvas_height - total_text_height) // 2 - 20
+        
+        for i, line in enumerate(wrapped_lines):
+            try:
+                # Modern Pillow text bbox calculations
+                left, top, right, bottom = draw.textbbox((0, 0), line, font=main_font)
+                text_width = right - left
+            except AttributeError:
+                # Fallback for old Pillow versions
+                text_width = draw.textsize(line, font=main_font)[0]
+                
+            x_pos = (canvas_width - text_width) // 2
+            y_pos = start_y + (i * line_height)
             
-        # Dynamically pull the original author's name for the signature line (with ':3' ending, no 'catboy')
-        signature_line = f"> \n>  - {message.author.display_name.lower()} :3"
+            # Subtle drop shadow for perfect visibility
+            draw.text((x_pos + 2, y_pos + 2), line, fill=(0, 0, 0, 200), font=main_font)
+            draw.text((x_pos, y_pos), line, fill=(255, 255, 255, 255), font=main_font)
+
+        # 2. Format and Draw Signature in bottom-right corner
+        signature = f"- {author_name.lower()} :3"
+        try:
+            left, top, right, bottom = draw.textbbox((0, 0), signature, font=sig_font)
+            sig_width = right - left
+            sig_height = bottom - top
+        except AttributeError:
+            sig_width, sig_height = draw.textsize(signature, font=sig_font)
+
+        # 30px padding from right and bottom edges
+        sig_x = canvas_width - sig_width - 45
+        sig_y = canvas_height - sig_height - 45
         
-        # Combine everything together
-        quote_msg = f"{header}\n{blockquote_content}\n{signature_line}"
-        
-        # If the original message had an image attachment, use that. Otherwise, choose from our 30-image pool
-        if message.attachments:
-            for attachment in message.attachments:
-                if attachment.content_type and attachment.content_type.startswith("image/"):
-                    quote_msg += f"\n{attachment.url}"
-                    return quote_msg
-                    
-        # Fallback to random aesthetic image to guarantee no boring repeats
-        random_image = random.choice(self.scenery_pool)
-        quote_msg += f"\n{random_image}"
-            
-        return quote_msg
+        # Subtle drop shadow for signature
+        draw.text((sig_x + 1, sig_y + 1), signature, fill=(0, 0, 0, 200), font=sig_font)
+        draw.text((sig_x, sig_y), signature, fill=(240, 240, 240, 255), font=sig_font)
+
+        # Save resulting image to memory
+        output = io.BytesIO()
+        final_image.convert("RGB").save(output, format="JPEG", quality=90)
+        output.seek(0)
+        return output
 
     # ─── Command: !quote ──────────────────────────────────────────────────────
     @commands.command(name="quote", aliases=["q"])
@@ -107,15 +170,29 @@ class Quote(commands.Cog):
         except discord.Forbidden:
             return await ctx.reply("❌ **Access Denied.** I don't have permissions to read that channel.")
 
-        quote_content = self.build_quote_text(message)
-        
-        # Delete command call to keep chat clean
-        try:
-            await ctx.message.delete()
-        except discord.Forbidden:
-            pass
+        async with ctx.typing():
+            # Choose a random background scenery image
+            bg_url = random.choice(self.scenery_pool)
+            
+            try:
+                # Generate custom image containing the quote text and signature
+                image_data = await self.generate_quote_card(
+                    background_url=bg_url,
+                    text=message.content or "*(No text content)*",
+                    author_name=message.author.display_name
+                )
+                
+                # Delete command call trigger safely to keep chat clean
+                try:
+                    await ctx.message.delete()
+                except discord.Forbidden:
+                    pass
 
-        await ctx.send(quote_content)
+                # Upload directly as a file attachment—meaning NO visible links!
+                await ctx.send(file=discord.File(fp=image_data, filename="quote.jpg"))
+                
+            except Exception as e:
+                await ctx.reply(f"❌ **An error occurred generating the image:** `{e}`")
 
     # ─── Automatic Link Quote Listener ───────────────────────────────────────
     @commands.Cog.listener()
@@ -134,8 +211,15 @@ class Quote(commands.Cog):
                 if channel:
                     try:
                         quoted_msg = await channel.fetch_message(message_id)
-                        quote_content = self.build_quote_text(quoted_msg)
-                        await message.channel.send(quote_content)
+                        
+                        async with message.channel.typing():
+                            bg_url = random.choice(self.scenery_pool)
+                            image_data = await self.generate_quote_card(
+                                background_url=bg_url,
+                                text=quoted_msg.content or "*(No text content)*",
+                                author_name=quoted_msg.author.display_name
+                            )
+                            await message.channel.send(file=discord.File(fp=image_data, filename="quote.jpg"))
                     except (discord.NotFound, discord.Forbidden):
                         pass
 
