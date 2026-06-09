@@ -10,35 +10,33 @@ class Quote(commands.Cog):
             r'https://(?:ptb\.|canary\.)?discord\.com/channels/(\d+)/(\d+)/(\d+)'
         )
 
-    # ─── Helper to Build Quote Embed ──────────────────────────────────────────
-    def build_quote_embed(self, message: discord.Message, quoted_by: discord.Member) -> discord.Embed:
-        """Compiles a premium dark velvet quote layout."""
-        embed = discord.Embed(
-            description=message.content or "*(No text content)*",
-            color=discord.Color.from_rgb(17, 2, 33), # Deep dark velvet purple
-            timestamp=message.created_at
-        )
+    # ─── Helper to Build Sleek Bleed/Greed Style Text ──────────────────────────
+    def build_quote_text(self, message: discord.Message) -> str:
+        """Compiles a clean, text-only quote matching the Bleed/Greed style."""
+        # Convert message timestamp to a relative Discord timestamp
+        unix_time = int(message.created_at.timestamp())
+        time_tag = f"<t:{unix_time}:R>"
         
-        # Set author info to the person who originally sent the message
-        embed.set_author(
-            name=message.author.display_name, 
-            icon_url=message.author.display_avatar.url
-        )
+        # Bleed/Greed clean header format: **Username** in #channel (timestamp)
+        header = f"**{message.author.display_name}** in {message.channel.mention} ({time_tag})"
         
-        # Add system details about context
-        embed.set_footer(
-            text=f"Quoted by {quoted_by.display_name} • Sent in #{message.channel.name}",
-            icon_url=quoted_by.display_avatar.url
-        )
-
-        # Handle attachment images if present
+        # Blockquote the original message content safely
+        content = message.content or ""
+        if content:
+            # Ensure every single line of a multiline message is blockquoted correctly
+            blockquote_content = "\n".join(f"> {line}" for line in content.split("\n"))
+        else:
+            blockquote_content = "> *(No text content)*"
+            
+        # Combine the header and blockquoted message
+        quote_msg = f"{header}\n{blockquote_content}"
+        
+        # Let attachments render natively by appending the URL at the bottom
         if message.attachments:
-            for attachment in message.attachments:
-                if attachment.content_type and attachment.content_type.startswith("image/"):
-                    embed.set_image(url=attachment.url)
-                    break
-                    
-        return embed
+            attachment_urls = "\n".join(attachment.url for attachment in message.attachments)
+            quote_msg += f"\n{attachment_urls}"
+            
+        return quote_msg
 
     # ─── Command: !quote ──────────────────────────────────────────────────────
     @commands.command(name="quote", aliases=["q"])
@@ -46,11 +44,10 @@ class Quote(commands.Cog):
         """Quotes a message. Reply to a message with '!q', or type '!q <message_id>'."""
         target_channel = channel or ctx.channel
         
-        # ─── If no ID is passed, check if the user is replying to a message ───
+        # ─── Reply Handling ───
         if message_id is None:
             if ctx.message.reference and ctx.message.reference.message_id:
                 message_id = ctx.message.reference.message_id
-                # Pull the channel where the referenced message lives
                 if ctx.message.reference.channel_id:
                     target_channel = ctx.guild.get_channel(ctx.message.reference.channel_id) or target_channel
             else:
@@ -67,15 +64,16 @@ class Quote(commands.Cog):
         except discord.Forbidden:
             return await ctx.reply("❌ **Access Denied.** I don't have permissions to read that channel.")
 
-        embed = self.build_quote_embed(message, ctx.author)
+        # Build the clean text quote
+        quote_content = self.build_quote_text(message)
         
-        # Delete command call to keep chat super clean
+        # Delete the trigger command (like !q) to make it look completely seamless
         try:
             await ctx.message.delete()
         except discord.Forbidden:
             pass
 
-        await ctx.send(embed=embed)
+        await ctx.send(quote_content)
 
     # ─── Automatic Link Quote Listener ───────────────────────────────────────
     @commands.Cog.listener()
@@ -97,12 +95,12 @@ class Quote(commands.Cog):
                 if channel:
                     try:
                         quoted_msg = await channel.fetch_message(message_id)
-                        embed = self.build_quote_embed(quoted_msg, message.author)
+                        quote_content = self.build_quote_text(quoted_msg)
                         
-                        # Send the gorgeous quote card directly
-                        await message.channel.send(embed=embed)
+                        # Send the clean quote text directly
+                        await message.channel.send(quote_content)
                     except (discord.NotFound, discord.Forbidden):
-                        pass # Silently pass if permission missing or missing link
+                        pass # Silently ignore errors
 
 async def setup(bot):
     await bot.add_cog(Quote(bot))
