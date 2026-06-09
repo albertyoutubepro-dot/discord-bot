@@ -70,24 +70,24 @@ class Quote(commands.Cog):
         
         draw = ImageDraw.Draw(final_image)
         
-        # Font Configuration - Try to load system fonts, fallback to default
+        # Font Configuration - Increased for highly visible and aesthetic presentation
         try:
             # Standard Linux/Unix/Mac sans-serif fonts
-            main_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 34)
-            sig_font = ImageFont.truetype("DejaVuSans.ttf", 22)
+            main_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 52)
+            sig_font = ImageFont.truetype("DejaVuSans.ttf", 30)
         except IOError:
             try:
                 # Standard Windows sans-serif fonts
-                main_font = ImageFont.truetype("arial.ttf", 34)
-                sig_font = ImageFont.truetype("arial.ttf", 22)
+                main_font = ImageFont.truetype("arial.ttf", 52)
+                sig_font = ImageFont.truetype("arial.ttf", 30)
             except IOError:
                 # Safe fallback
                 main_font = ImageFont.load_default()
                 sig_font = ImageFont.load_default()
 
-        # 1. Format and Center the Quoted Message Text
+        # 1. Format and Center the Quoted Message Text (max chars reduced to fit larger font)
         wrapped_lines = []
-        max_chars_per_line = 36
+        max_chars_per_line = 24
         words = text.split()
         
         current_line = []
@@ -100,8 +100,8 @@ class Quote(commands.Cog):
         if current_line:
             wrapped_lines.append(" ".join(current_line))
 
-        # Handle drawing multi-line centered text
-        line_height = 42
+        # Handle drawing multi-line centered text (increased line height proportionally)
+        line_height = 62
         total_text_height = len(wrapped_lines) * line_height
         start_y = (canvas_height - total_text_height) // 2 - 20
         
@@ -118,7 +118,7 @@ class Quote(commands.Cog):
             y_pos = start_y + (i * line_height)
             
             # Subtle drop shadow for perfect visibility
-            draw.text((x_pos + 2, y_pos + 2), line, fill=(0, 0, 0, 200), font=main_font)
+            draw.text((x_pos + 3, y_pos + 3), line, fill=(0, 0, 0, 200), font=main_font)
             draw.text((x_pos, y_pos), line, fill=(255, 255, 255, 255), font=main_font)
 
         # 2. Format and Draw Signature in bottom-right corner
@@ -130,12 +130,12 @@ class Quote(commands.Cog):
         except AttributeError:
             sig_width, sig_height = draw.textsize(signature, font=sig_font)
 
-        # 30px padding from right and bottom edges
+        # Padding adjusted for larger signature sizing
         sig_x = canvas_width - sig_width - 45
         sig_y = canvas_height - sig_height - 45
         
         # Subtle drop shadow for signature
-        draw.text((sig_x + 1, sig_y + 1), signature, fill=(0, 0, 0, 200), font=sig_font)
+        draw.text((sig_x + 2, sig_y + 2), signature, fill=(0, 0, 0, 200), font=sig_font)
         draw.text((sig_x, sig_y), signature, fill=(240, 240, 240, 255), font=sig_font)
 
         # Save resulting image to memory
