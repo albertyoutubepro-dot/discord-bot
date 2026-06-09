@@ -48,6 +48,28 @@ class Quote(commands.Cog):
             "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3N0aTR6YWV3bW53YmU0ZWhvczFvYmRsZ2NpdWhpZnN5cW5pcnA3diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oz8xAFtqo0LYIkIwE/giphy.gif" # Scenic waterfall 3
         ]
 
+    # ─── Helper to Safely Load and Scale Fonts ───────────────────────────────
+    def load_scaled_font(self, font_preference: str, size: int, bold: bool = False) -> ImageFont.ImageFont:
+        """Attempts to load a specific system font, falling back gracefully to scaled defaults."""
+        font_names = []
+        if bold:
+            font_names.extend(["DejaVuSans-Bold.ttf", "arialbd.ttf", "LiberationSans-Bold.ttf", "Ubuntu-B.ttf"])
+        else:
+            font_names.extend(["DejaVuSans.ttf", "arial.ttf", "LiberationSans-Regular.ttf", "Ubuntu-R.ttf"])
+
+        for name in font_names:
+            try:
+                return ImageFont.truetype(name, size)
+            except IOError:
+                continue
+
+        # If system fonts are missing, use Pillow 10+ scaled default font
+        try:
+            return ImageFont.load_default(size=size)
+        except TypeError:
+            # Absolute fallback for legacy Pillow installations
+            return ImageFont.load_default()
+
     # ─── Dynamic PIL Image Rendering Engine ──────────────────────────────────
     async def generate_quote_card(self, background_url: str, text: str, author_name: str) -> io.BytesIO:
         """Downloads a background image, applies a dark overlay, draws centered text + bottom-right signature, and returns it."""
@@ -70,24 +92,30 @@ class Quote(commands.Cog):
         
         draw = ImageDraw.Draw(final_image)
         
-        # Font Configuration - Increased for highly visible and aesthetic presentation
-        try:
-            # Standard Linux/Unix/Mac sans-serif fonts
-            main_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 52)
-            sig_font = ImageFont.truetype("DejaVuSans.ttf", 30)
-        except IOError:
-            try:
-                # Standard Windows sans-serif fonts
-                main_font = ImageFont.truetype("arial.ttf", 52)
-                sig_font = ImageFont.truetype("arial.ttf", 30)
-            except IOError:
-                # Safe fallback
-                main_font = ImageFont.load_default()
-                sig_font = ImageFont.load_default()
+        # Dynamic Scaling: Select parameters based on quote length to maximize visual impact
+        text_length = len(text)
+        if text_length <= 15:
+            # For short phrases like "LMAO" or "no way"
+            font_size = 76
+            max_chars_per_line = 16
+            line_height = 86
+        elif text_length <= 50:
+            # Medium sentences
+            font_size = 54
+            max_chars_per_line = 24
+            line_height = 64
+        else:
+            # Longer paragraphs
+            font_size = 38
+            max_chars_per_line = 34
+            line_height = 48
 
-        # 1. Format and Center the Quoted Message Text (max chars reduced to fit larger font)
+        # Load fonts safely with fallbacks
+        main_font = self.load_scaled_font("DejaVuSans", font_size, bold=True)
+        sig_font = self.load_scaled_font("DejaVuSans", 30, bold=False)
+
+        # 1. Format and Center the Quoted Message Text
         wrapped_lines = []
-        max_chars_per_line = 24
         words = text.split()
         
         current_line = []
@@ -100,8 +128,7 @@ class Quote(commands.Cog):
         if current_line:
             wrapped_lines.append(" ".join(current_line))
 
-        # Handle drawing multi-line centered text (increased line height proportionally)
-        line_height = 62
+        # Handle drawing multi-line centered text
         total_text_height = len(wrapped_lines) * line_height
         start_y = (canvas_height - total_text_height) // 2 - 20
         
@@ -117,8 +144,8 @@ class Quote(commands.Cog):
             x_pos = (canvas_width - text_width) // 2
             y_pos = start_y + (i * line_height)
             
-            # Subtle drop shadow for perfect visibility
-            draw.text((x_pos + 3, y_pos + 3), line, fill=(0, 0, 0, 200), font=main_font)
+            # Substantial drop shadow for flawless readability on any background
+            draw.text((x_pos + 3, y_pos + 3), line, fill=(0, 0, 0, 220), font=main_font)
             draw.text((x_pos, y_pos), line, fill=(255, 255, 255, 255), font=main_font)
 
         # 2. Format and Draw Signature in bottom-right corner
@@ -130,12 +157,12 @@ class Quote(commands.Cog):
         except AttributeError:
             sig_width, sig_height = draw.textsize(signature, font=sig_font)
 
-        # Padding adjusted for larger signature sizing
+        # Bottom-right padding adjustment
         sig_x = canvas_width - sig_width - 45
         sig_y = canvas_height - sig_height - 45
         
         # Subtle drop shadow for signature
-        draw.text((sig_x + 2, sig_y + 2), signature, fill=(0, 0, 0, 200), font=sig_font)
+        draw.text((sig_x + 2, sig_y + 2), signature, fill=(0, 0, 0, 220), font=sig_font)
         draw.text((sig_x, sig_y), signature, fill=(240, 240, 240, 255), font=sig_font)
 
         # Save resulting image to memory
