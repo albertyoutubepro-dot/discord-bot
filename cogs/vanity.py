@@ -39,10 +39,20 @@ class VanityRewards(commands.Cog):
 
         has_vanity = False
 
-        # Scan all activities for a CustomStatus/CustomActivity
+        # Scan all activities for a CustomActivity (Custom Status)
         for activity in member.activities:
             if isinstance(activity, discord.CustomActivity):
-                if activity.name and vanity_string.lower() in activity.name.lower():
+                # IMPORTANT: In discord.py, the custom status text is stored in 'state'.
+                # 'name' is usually set to "Custom Status".
+                text_to_check = []
+                if activity.state:
+                    text_to_check.append(activity.state.lower())
+                if activity.name:
+                    text_to_check.append(activity.name.lower())
+                
+                # Combine state and name to verify matches
+                combined_text = " ".join(text_to_check)
+                if vanity_string.lower() in combined_text:
                     has_vanity = True
                     break
 
